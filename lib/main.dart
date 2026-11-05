@@ -4,12 +4,11 @@ void main() {
   runApp(const CravioApp());
 }
 
-// ---------------- GLOBAL CONTROLLER ----------------
+// ---------------- APP CONTROLLER ----------------
 class AppState extends ChangeNotifier {
   static final AppState instance = AppState();
 
   bool isHindi = true;
-  String currentRole = 'Customer';
 
   String userName = "राहुल शर्मा";
   String userPhone = "9826012345";
@@ -23,13 +22,8 @@ class AppState extends ChangeNotifier {
   String activeRestaurant = "";
   List<Map<String, dynamic>> orders = [];
 
-  void setLang(bool hindi) {
+  void toggleLang(bool hindi) {
     isHindi = hindi;
-    notifyListeners();
-  }
-
-  void setRole(String role) {
-    currentRole = role;
     notifyListeners();
   }
 
@@ -70,6 +64,7 @@ class AppState extends ChangeNotifier {
       "items": List.from(items),
       "total": total,
       "status": isHindi ? "स्वीकृत (Confirmed)" : "Confirmed",
+      "time": "Just now",
     });
     cart.clear();
     activeRestaurant = "";
@@ -87,46 +82,43 @@ class CravioApp extends StatelessWidget {
       animation: AppState.instance,
       builder: (context, _) {
         return MaterialApp(
-          title: 'Cravio - Eevaan Ventures',
+          title: 'Cravio - Ganj Basoda',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
-            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-            primaryColor: const Color(0xFF0B1325),
+            scaffoldBackgroundColor: const Color(0xFFF9F8F6), // Warm Pearl Cream
+            primaryColor: const Color(0xFF262220), // Brown Diamond Smoke
             colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF0B1325),
-              primary: const Color(0xFF0B1325),
-              secondary: const Color(0xFFC59B27),
+              seedColor: const Color(0xFF262220),
+              primary: const Color(0xFF262220),
+              secondary: const Color(0xFFC5A059), // Champagne Diamond Gold
             ),
             fontFamily: 'Roboto',
           ),
-          home: const MainLayoutScreen(),
+          home: const MainNavigationScreen(),
         );
       },
     );
   }
 }
 
-class MainLayoutScreen extends StatefulWidget {
-  const MainLayoutScreen({super.key});
+class MainNavigationScreen extends StatefulWidget {
+  const MainNavigationScreen({super.key});
 
   @override
-  State<MainLayoutScreen> createState() => _MainLayoutScreenState();
+  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainLayoutScreenState extends State<MainLayoutScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
     final state = AppState.instance;
 
-    if (state.currentRole == 'Restaurant') return const RestaurantView();
-    if (state.currentRole == 'Admin') return const AdminView();
-
     final pages = [
-      const HomeFeedView(),
-      const OrdersView(),
-      const ProfileView(),
+      const CustomerHomeScreen(),
+      const CustomerOrdersScreen(),
+      const CustomerProfileScreen(),
     ];
 
     return Scaffold(
@@ -135,13 +127,13 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
         ),
         child: BottomNavigationBar(
           currentIndex: _tab,
           backgroundColor: Colors.white,
           elevation: 0,
-          selectedItemColor: const Color(0xFF0B1325),
+          selectedItemColor: const Color(0xFF262220),
           unselectedItemColor: Colors.grey.shade400,
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           onTap: (i) => setState(() => _tab = i),
@@ -149,12 +141,12 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
             BottomNavigationBarItem(
               icon: const Icon(Icons.storefront_outlined),
               activeIcon: const Icon(Icons.storefront),
-              label: state.isHindi ? "रेस्टोरेंट" : "Explore",
+              label: state.isHindi ? "रेस्टोरेंट" : "Restaurants",
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.receipt_long_outlined),
               activeIcon: const Icon(Icons.receipt_long),
-              label: state.isHindi ? "मेरे ऑर्डर" : "Orders",
+              label: state.isHindi ? "मेरे ऑर्डर" : "My Orders",
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.person_outline),
@@ -169,7 +161,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
 }
 
 // ---------------- RESTAURANTS DATABASE ----------------
-final List<Map<String, dynamic>> basodaRestaurants = [
+final List<Map<String, dynamic>> ganjBasodaRestaurants = [
   {
     "name": "Hotel Marwari",
     "hindiName": "होटल मारवाड़ी",
@@ -177,16 +169,17 @@ final List<Map<String, dynamic>> basodaRestaurants = [
     "area": "नेहरू चौक, गंजबासौदा",
     "tag": "शुद्ध शाकाहारी थाली, दाल बाटी व मिठाई",
     "enTag": "Pure Veg Thali, Dal Baati & Sweets",
-    "rating": "4.6",
+    "rating": "4.8",
+    "reviewsCount": "1,240+",
     "time": "20-25 min",
-    "discount": "FLAT ₹30 OFF",
+    "offer": "FLAT ₹30 OFF",
     "menu": [
       {
         "name": "मारवाड़ी स्पेशल थाली",
         "en": "Marwari Special Thali",
         "price": 180,
         "image": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80",
-        "desc": "दाल तड़का, शाही पनीर, सूखी सब्जी, 4 बटर रोटी, चावल, रायता व गुलाब जामुन",
+        "desc": "दाल तड़का, शाही पनीर, सूखी सब्जी, 4 बटर रोटी, चावल, रायता व मीठा",
         "enDesc": "Dal Tadka, Shahi Paneer, Sabji, 4 Butter Roti, Rice, Raita & Sweet",
       },
       {
@@ -214,9 +207,10 @@ final List<Map<String, dynamic>> basodaRestaurants = [
     "area": "स्टेशन रोड, गंजबासौदा",
     "tag": "चीज़ी पिज़्ज़ा, बर्गर, शेक्स और फ्राइज़",
     "enTag": "Loaded Pizzas, Burgers & Shakes",
-    "rating": "4.5",
+    "rating": "4.7",
+    "reviewsCount": "890+",
     "time": "15-20 min",
-    "discount": "20% OFF",
+    "offer": "20% OFF",
     "menu": [
       {
         "name": "फार्महाउस चीज़ी पिज़्ज़ा (7 Inch)",
@@ -243,9 +237,10 @@ final List<Map<String, dynamic>> basodaRestaurants = [
     "area": "बरेथ रोड, गंजबासौदा",
     "tag": "नॉर्थ इंडियन, चाइनीज़ व दम बिरयानी",
     "enTag": "North Indian, Chinese & Biryani",
-    "rating": "4.4",
+    "rating": "4.6",
+    "reviewsCount": "620+",
     "time": "25-30 min",
-    "discount": "FREE DELIVERY",
+    "offer": "FREE DELIVERY",
     "menu": [
       {
         "name": "पनीर टिक्का मसाला",
@@ -272,9 +267,10 @@ final List<Map<String, dynamic>> basodaRestaurants = [
     "area": "नेहरू चौक, गंजबासौदा",
     "tag": "समोसा, कचौरी व देशी घी की जलेबी",
     "enTag": "Samosa, Kachori & Desi Ghee Jalebi",
-    "rating": "4.7",
+    "rating": "4.9",
+    "reviewsCount": "1,850+",
     "time": "15 min",
-    "discount": "TOP SELLER",
+    "offer": "TOP SELLER",
     "menu": [
       {
         "name": "गरमा-गरम समोसा (2 पीस)",
@@ -296,37 +292,57 @@ final List<Map<String, dynamic>> basodaRestaurants = [
   },
 ];
 
-// ---------------- 1. HOME SCREEN (LUXURY EXECUTIVE DESIGN) ----------------
-class HomeFeedView extends StatelessWidget {
-  const HomeFeedView({super.key});
+// ---------------- 1. CUSTOMER HOME SCREEN ----------------
+class CustomerHomeScreen extends StatefulWidget {
+  const CustomerHomeScreen({super.key});
+
+  @override
+  State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
+}
+
+class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
+  Future<void> _refreshData() async {
+    await Future.delayed(const Duration(milliseconds: 600));
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          AppState.instance.isHindi ? "✓ मेन्यू और रेट्स तुरंत अपडेट हो गए!" : "✓ Menus & rates updated live!",
+        ),
+        duration: const Duration(seconds: 1),
+        backgroundColor: const Color(0xFF262220),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = AppState.instance;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      key: ValueKey("HomeLangKey_${state.isHindi}"),
+      backgroundColor: const Color(0xFFF9F8F6),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1325), // Royal Executive Navy
+        backgroundColor: const Color(0xFF262220), // Brown Diamond Smoke
         elevation: 0,
-        toolbarHeight: 90,
+        toolbarHeight: 88,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                // Stylish CRAVIO Logo
+                // Stylish CRAVIO Typography
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFC59B27).withOpacity(0.4)),
+                    border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.4)),
                   ),
                   child: const Text(
                     "C R A V I O",
                     style: TextStyle(
-                      color: Color(0xFFD4AF37), // Champagne Gold
+                      color: Color(0xFFC5A059),
                       fontWeight: FontWeight.w900,
                       fontSize: 18,
                       letterSpacing: 3,
@@ -334,7 +350,7 @@ class HomeFeedView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(Icons.verified, color: Color(0xFFD4AF37), size: 16),
+                const Icon(Icons.verified, color: Color(0xFFC5A059), size: 16),
               ],
             ),
             const SizedBox(height: 4),
@@ -345,7 +361,7 @@ class HomeFeedView extends StatelessWidget {
           ],
         ),
         actions: [
-          // Instant 0ms Language Switcher
+          // Instant 0ms Language Toggle
           Center(
             child: Container(
               margin: const EdgeInsets.only(right: 14),
@@ -353,255 +369,307 @@ class HomeFeedView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFC59B27).withOpacity(0.5)),
+                border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.5)),
               ),
               child: Row(
                 children: [
-                  _langPill("हि", state.isHindi, () => state.setLang(true)),
-                  _langPill("EN", !state.isHindi, () => state.setLang(false)),
+                  _langButton("हि", state.isHindi, () {
+                    setState(() => state.toggleLang(true));
+                  }),
+                  _langButton("EN", !state.isHindi, () {
+                    setState(() => state.toggleLang(false));
+                  }),
                 ],
               ),
             ),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Address Selector Bar
-          InkWell(
-            onTap: () => _openAddressSheet(context),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      body: RefreshIndicator(
+        color: const Color(0xFFC5A059),
+        backgroundColor: const Color(0xFF262220),
+        onRefresh: _refreshData,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Delivery Address Bar
+            InkWell(
+              onTap: () => _openAddressDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6)],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFFC5A059)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            state.isHindi ? "वर्तमान डिलीवरी पता (बदलने के लिए टैप करें):" : "Delivery Address (Tap to change):",
+                            style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            state.fullAddress,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.keyboard_arrow_right, color: Colors.grey),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Digital Trust & Verified Banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6)],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.3)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _digitalBadge(Icons.star, "4.8 ★ रेटिंग्स", "1,450+ ऑर्डर्स"),
+                  Container(height: 24, width: 1, color: Colors.grey.shade200),
+                  _digitalBadge(Icons.verified_user, "100% हाइजीन", "गंजबासौदा वेरिफाइड"),
+                  Container(height: 24, width: 1, color: Colors.grey.shade200),
+                  _digitalBadge(Icons.bolt, "20-25 मिनट", "फास्ट डिलीवरी"),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Executive Banner
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF262220), Color(0xFF383330)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(color: const Color(0xFF262220).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
+                ],
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFFC59B27)),
-                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          state.isHindi ? "डिलीवरी का पता (बदलने के लिए टैप करें):" : "Delivery Address (Tap to change):",
-                          style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFC5A059),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            state.isHindi ? "काउंटर रेट पर घर बैठे" : "AUTHENTIC COUNTER RATES",
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
                         ),
+                        const SizedBox(height: 8),
                         Text(
-                          state.fullAddress,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0B1325)),
-                          overflow: TextOverflow.ellipsis,
+                          state.isHindi ? "गंजबासौदा के प्रसिद्ध रेस्टोरेंट्स\nअब सिर्फ एक क्लिक पर!" : "Ganj Basoda's Famous Dining\nDelivered Directly to You!",
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.3),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.keyboard_arrow_right, color: Colors.grey),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=200&q=80",
+                      height: 75,
+                      width: 75,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 22),
 
-          // Executive Banner
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0B1325), Color(0xFF1E293B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(color: const Color(0xFF0B1325).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
+            Text(
+              state.isHindi ? "गंजबासौदा के प्रमुख रेस्टोरेंट्स" : "Popular Restaurants in Ganj Basoda",
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
             ),
-            child: Row(
-              children: [
-                Expanded(
+            const SizedBox(height: 14),
+
+            // Restaurant Cards
+            ...ganjBasodaRestaurants.map((res) {
+              return Card(
+                margin: const EdgeInsets.only(bottom: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.grey.shade200),
+                ),
+                clipBehavior: Clip.antiAlias,
+                elevation: 1.5,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => RestaurantMenuScreen(restaurant: res)),
+                    );
+                  },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFC59B27),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          state.isHindi ? "काउंटर रेट गारंटी" : "COUNTER PRICE ASSURED",
-                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        state.isHindi ? "गंजबासौदा का मनपसंद भोजन\nघर बैठे मंगवाएं!" : "Ganj Basoda's Best Dining\nDelivered with Elegance!",
-                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.3),
-                      ),
-                    ],
-                  ),
-                ),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=200&q=80",
-                    height: 75,
-                    width: 75,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          Text(
-            state.isHindi ? "गंजबासौदा के प्रमुख रेस्टोरेंट्स" : "Partner Restaurants in Ganj Basoda",
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0B1325)),
-          ),
-          const SizedBox(height: 14),
-
-          // Restaurant Cards
-          ...basodaRestaurants.map((res) {
-            return Card(
-              margin: const EdgeInsets.only(bottom: 18),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.grey.shade200),
-              ),
-              clipBehavior: Clip.antiAlias,
-              elevation: 1.5,
-              child: InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => MenuDetailScreen(restaurant: res)),
-                  );
-                },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
-                      children: [
-                        Image.network(
-                          res["image"],
-                          height: 155,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                        Positioned(
-                          top: 12,
-                          left: 12,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0B1325),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFC59B27)),
-                            ),
-                            child: Text(
-                              res["discount"],
-                              style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 12,
-                          right: 12,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.black87,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.timer_outlined, size: 12, color: Colors.white),
-                                const SizedBox(width: 4),
-                                Text(
-                                  res["time"],
-                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Stack(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                state.isHindi ? res["hindiName"] : res["name"],
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1325)),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF0B1325),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: const Color(0xFFC59B27)),
-                                ),
-                                child: Text("★ ${res["rating"]}", style: const TextStyle(color: Color(0xFFD4AF37), fontSize: 12, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(res["area"], style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                          Text(
-                            state.isHindi ? res["tag"] : res["enTag"],
-                            style: const TextStyle(color: Color(0xFFC59B27), fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                          const Divider(height: 22),
-                          SizedBox(
+                          Image.network(
+                            res["image"],
+                            height: 155,
                             width: double.infinity,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0B1325),
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            fit: BoxFit.cover,
+                          ),
+                          Positioned(
+                            top: 12,
+                            left: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF262220),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFC5A059)),
                               ),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => MenuDetailScreen(restaurant: res)),
-                                );
-                              },
                               child: Text(
-                                state.isHindi ? "मेन्यू देखें और ऑर्डर करें ➔" : "View Menu & Order ➔",
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                res["offer"],
+                                style: const TextStyle(color: Color(0xFFC5A059), fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 12,
+                            right: 12,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.black87,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.timer_outlined, size: 12, color: Colors.white),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    res["time"],
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  state.isHindi ? res["hindiName"] : res["name"],
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF262220),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFC5A059)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        "★ ${res["rating"]}",
+                                        style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        " (${res["reviewsCount"]})",
+                                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(res["area"], style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                            Text(
+                              state.isHindi ? res["tag"] : res["enTag"],
+                              style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                            const Divider(height: 22),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF262220),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => RestaurantMenuScreen(restaurant: res)),
+                                  );
+                                },
+                                child: Text(
+                                  state.isHindi ? "मेन्यू देखें और खाना चुनें ➔" : "View Menu & Order ➔",
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
-        ],
+              );
+            }).toList(),
+          ],
+        ),
       ),
     );
   }
 
-  static Widget _langPill(String text, bool active, VoidCallback onTap) {
+  Widget _digitalBadge(IconData icon, String title, String sub) {
+    return Column(
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFFC5A059)),
+        const SizedBox(height: 2),
+        Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
+        Text(sub, style: const TextStyle(fontSize: 9, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _langButton(String text, bool active, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFC59B27) : Colors.transparent,
+          color: active ? const Color(0xFFC5A059) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Text(
@@ -616,7 +684,7 @@ class HomeFeedView extends StatelessWidget {
     );
   }
 
-  static void _openAddressSheet(BuildContext context) {
+  void _openAddressDialog(BuildContext context) {
     final state = AppState.instance;
     final nameCtrl = TextEditingController(text: state.userName);
     final phoneCtrl = TextEditingController(text: state.userPhone);
@@ -642,7 +710,7 @@ class HomeFeedView extends StatelessWidget {
             children: [
               Text(
                 state.isHindi ? "डिलीवरी का पता अपडेट करें" : "Update Delivery Address",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1325)),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
               ),
               const Divider(),
               TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "कस्टमर का नाम")),
@@ -655,13 +723,14 @@ class HomeFeedView extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0B1325),
+                    backgroundColor: const Color(0xFF262220),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () {
                     state.updateAddress(nameCtrl.text, phoneCtrl.text, areaCtrl.text, houseCtrl.text, landmarkCtrl.text);
                     Navigator.pop(ctx);
+                    setState(() {});
                   },
                   child: Text(
                     state.isHindi ? "पता सेव करें" : "Save Address",
@@ -677,16 +746,16 @@ class HomeFeedView extends StatelessWidget {
   }
 }
 
-// ---------------- 2. MENU DETAIL SCREEN ----------------
-class MenuDetailScreen extends StatefulWidget {
+// ---------------- 2. RESTAURANT MENU DETAIL SCREEN ----------------
+class RestaurantMenuScreen extends StatefulWidget {
   final Map<String, dynamic> restaurant;
-  const MenuDetailScreen({super.key, required this.restaurant});
+  const RestaurantMenuScreen({super.key, required this.restaurant});
 
   @override
-  State<MenuDetailScreen> createState() => _MenuDetailScreenState();
+  State<RestaurantMenuScreen> createState() => _RestaurantMenuScreenState();
 }
 
-class _MenuDetailScreenState extends State<MenuDetailScreen> {
+class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -717,9 +786,9 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
         });
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
+          backgroundColor: const Color(0xFFF9F8F6),
           appBar: AppBar(
-            backgroundColor: const Color(0xFF0B1325),
+            backgroundColor: const Color(0xFF262220),
             foregroundColor: Colors.white,
             elevation: 0,
             title: Column(
@@ -761,7 +830,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                             Expanded(
                               child: Text(
                                 state.isHindi ? item["name"] : item["en"],
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0B1325)),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF262220)),
                               ),
                             ),
                           ],
@@ -769,7 +838,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                         const SizedBox(height: 4),
                         Text(
                           "₹$itemPrice",
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFC59B27)),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFC5A059)),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -797,7 +866,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF0B1325)),
+                          border: Border.all(color: const Color(0xFF262220)),
                           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4)],
                         ),
                         child: qty == 0
@@ -807,7 +876,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                                   padding: EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                                   child: Text(
                                     "+ ADD",
-                                    style: TextStyle(color: Color(0xFF0B1325), fontWeight: FontWeight.bold, fontSize: 12),
+                                    style: TextStyle(color: Color(0xFF262220), fontWeight: FontWeight.bold, fontSize: 12),
                                   ),
                                 ),
                               )
@@ -817,14 +886,14 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                                   IconButton(
                                     constraints: const BoxConstraints(),
                                     padding: const EdgeInsets.all(4),
-                                    icon: const Icon(Icons.remove, size: 14, color: Color(0xFF0B1325)),
+                                    icon: const Icon(Icons.remove, size: 14, color: Color(0xFF262220)),
                                     onPressed: () => state.removeFromCart(itemKey),
                                   ),
                                   Text("$qty", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                   IconButton(
                                     constraints: const BoxConstraints(),
                                     padding: const EdgeInsets.all(4),
-                                    icon: const Icon(Icons.add, size: 14, color: Color(0xFF0B1325)),
+                                    icon: const Icon(Icons.add, size: 14, color: Color(0xFF262220)),
                                     onPressed: () => state.addToCart(itemKey, rName),
                                   ),
                                 ],
@@ -845,7 +914,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                   ),
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0B1325),
+                      backgroundColor: const Color(0xFF262220),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -902,7 +971,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
             children: [
               Text(
                 state.isHindi ? "अंतिम बिल विवरण (Cravio Bill)" : "Order Bill Summary",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0B1325)),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
               ),
               const Divider(height: 18),
               ...items.map((i) => Padding(
@@ -919,7 +988,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(state.isHindi ? "डिलीवरी चार्ज" : "Delivery Charge"),
+                  Text(state.isHindi ? "लोकल डिलीवरी चार्ज" : "Delivery Charge"),
                   const Text("₹$delivery"),
                 ],
               ),
@@ -928,7 +997,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(state.isHindi ? "कुल भुगतान (कैश ऑन डिलीवरी)" : "Total Due (COD)", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  Text("₹$grandTotal", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFFC59B27))),
+                  Text("₹$grandTotal", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFFC5A059))),
                 ],
               ),
               const Divider(height: 20),
@@ -943,11 +1012,11 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                   children: [
                     Text(
                       state.isHindi ? "डिलीवरी का पता:" : "Delivering To:",
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFC59B27)),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFC5A059)),
                     ),
                     Text(
                       state.fullAddress,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0B1325)),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
                     ),
                   ],
                 ),
@@ -957,7 +1026,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0B1325),
+                    backgroundColor: const Color(0xFF262220),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -970,7 +1039,7 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
                         content: Text(
                           state.isHindi ? "🎉 बधाई! आपका ऑर्डर होटल को भेज दिया गया है।" : "🎉 Success! Order sent to restaurant.",
                         ),
-                        backgroundColor: const Color(0xFF0B1325),
+                        backgroundColor: const Color(0xFF262220),
                       ),
                     );
                   },
@@ -988,9 +1057,9 @@ class _MenuDetailScreenState extends State<MenuDetailScreen> {
   }
 }
 
-// ---------------- 3. ORDERS VIEW ----------------
-class OrdersView extends StatelessWidget {
-  const OrdersView({super.key});
+// ---------------- 3. CUSTOMER ORDERS VIEW ----------------
+class CustomerOrdersScreen extends StatelessWidget {
+  const CustomerOrdersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1000,10 +1069,10 @@ class OrdersView extends StatelessWidget {
         final state = AppState.instance;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
+          backgroundColor: const Color(0xFFF9F8F6),
           appBar: AppBar(
             title: Text(state.isHindi ? "मेरे ऑर्डर (Live Tracking)" : "My Orders"),
-            backgroundColor: const Color(0xFF0B1325),
+            backgroundColor: const Color(0xFF262220),
             foregroundColor: Colors.white,
             elevation: 0,
           ),
@@ -1054,7 +1123,7 @@ class OrdersView extends StatelessWidget {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            Text(o["res"], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0B1325))),
+                            Text(o["res"], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
                             const Divider(height: 16),
                             ...((o["items"] as List).map((i) => Text("• ${i['title']} x ${i['qty']}", style: const TextStyle(fontSize: 13)))),
                             const Divider(height: 16),
@@ -1062,7 +1131,7 @@ class OrdersView extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(state.isHindi ? "कुल बिल (कैश ऑन डिलीवरी)" : "Total Bill (COD)", style: const TextStyle(color: Colors.grey)),
-                                Text("₹${o['total']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFFC59B27))),
+                                Text("₹${o['total']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFFC5A059))),
                               ],
                             ),
                           ],
@@ -1077,61 +1146,9 @@ class OrdersView extends StatelessWidget {
   }
 }
 
-// ---------------- 4. RESTAURANT PARTNER VIEW ----------------
-class RestaurantView extends StatelessWidget {
-  const RestaurantView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = AppState.instance;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1325),
-        foregroundColor: Colors.white,
-        title: const Text("होटल मारवाड़ी - पार्टनर टर्मिनल"),
-        actions: [
-          TextButton(
-            onPressed: () => state.setRole('Customer'),
-            child: const Text("ग्राहक बनें", style: TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold)),
-          )
-        ],
-      ),
-      body: const Center(child: Text("पार्टनर टर्मिनल सक्रिय है")),
-    );
-  }
-}
-
-// ---------------- 5. ADMIN VIEW ----------------
-class AdminView extends StatelessWidget {
-  const AdminView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = AppState.instance;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF0B1325),
-        foregroundColor: Colors.white,
-        title: const Text("Eevaan Ventures Super Admin"),
-        actions: [
-          TextButton(
-            onPressed: () => state.setRole('Customer'),
-            child: const Text("ग्राहक बनें", style: TextStyle(color: Color(0xFFD4AF37), fontWeight: FontWeight.bold)),
-          )
-        ],
-      ),
-      body: const Center(child: Text("एडमिन पैनल सक्रिय है")),
-    );
-  }
-}
-
-// ---------------- 6. PROFILE VIEW ----------------
-class ProfileView extends StatelessWidget {
-  const ProfileView({super.key});
+// ---------------- 4. CUSTOMER PROFILE VIEW ----------------
+class CustomerProfileScreen extends StatelessWidget {
+  const CustomerProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -1141,10 +1158,10 @@ class ProfileView extends StatelessWidget {
         final state = AppState.instance;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
+          backgroundColor: const Color(0xFFF9F8F6),
           appBar: AppBar(
-            title: Text(state.isHindi ? "मेरी प्रोफ़ाइल एवं सेटिंग्स" : "Profile & Settings"),
-            backgroundColor: const Color(0xFF0B1325),
+            title: Text(state.isHindi ? "मेरी प्रोफ़ाइल" : "My Profile"),
+            backgroundColor: const Color(0xFF262220),
             foregroundColor: Colors.white,
             elevation: 0,
           ),
@@ -1155,15 +1172,15 @@ class ProfileView extends StatelessWidget {
                 children: [
                   const CircleAvatar(
                     radius: 28,
-                    backgroundColor: Color(0xFF0B1325),
-                    child: Icon(Icons.person, color: Color(0xFFD4AF37), size: 30),
+                    backgroundColor: Color(0xFF262220),
+                    child: Icon(Icons.person, color: Color(0xFFC5A059), size: 30),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(state.userName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0B1325))),
+                        Text(state.userName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
                         Text(state.userPhone, style: const TextStyle(color: Colors.grey)),
                         Text(state.fullAddress, style: TextStyle(color: Colors.grey.shade600, fontSize: 11), maxLines: 2),
                       ],
@@ -1172,34 +1189,22 @@ class ProfileView extends StatelessWidget {
                 ],
               ),
               const Divider(height: 36),
-
-              Text(
-                state.isHindi ? "आधिकारिक पोर्टल मोड (Testing Controls)" : "Terminal Controls",
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(10)),
-                child: Row(
-                  children: [
-                    _tab("Customer", state.isHindi ? "ग्राहक ऐप" : "Customer", state),
-                    _tab("Restaurant", state.isHindi ? "रेस्टोरेंट" : "Restaurant", state),
-                    _tab("Admin", state.isHindi ? "एडमिन" : "Admin", state),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
               ListTile(
-                leading: const Icon(Icons.location_on_outlined, color: Color(0xFF0B1325)),
+                leading: const Icon(Icons.location_on_outlined, color: Color(0xFF262220)),
                 title: Text(state.isHindi ? "डिलीवरी पता बदलें" : "Edit Address"),
                 subtitle: Text(state.fullAddress),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                onTap: () => HomeFeedView._openAddressSheet(context),
+                onTap: () {
+                  // Direct address edit
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.support_agent, color: Color(0xFF262220)),
+                title: Text(state.isHindi ? "कस्टमर केयर सपोर्ट" : "Customer Support"),
+                subtitle: const Text("गंजबासौदा हेल्पलाइन"),
               ),
               const ListTile(
-                leading: Icon(Icons.verified_outlined, color: Color(0xFFC59B27)),
+                leading: Icon(Icons.verified_outlined, color: Color(0xFFC5A059)),
                 title: Text("Cravio Platform"),
                 subtitle: Text("Presented by Eevaan Ventures"),
               ),
@@ -1207,31 +1212,6 @@ class ProfileView extends StatelessWidget {
           ),
         );
       },
-    );
-  }
-
-  Widget _tab(String role, String label, AppState state) {
-    final active = state.currentRole == role;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => state.setRole(role),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: active ? const Color(0xFF0B1325) : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              color: active ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
