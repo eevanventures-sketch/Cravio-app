@@ -4,7 +4,7 @@ void main() {
   runApp(const CravioApp());
 }
 
-// ---------------- APP CONTROLLER ----------------
+// ---------------- APP CONTROLLER & STATE ----------------
 class AppState extends ChangeNotifier {
   static final AppState instance = AppState();
 
@@ -57,13 +57,14 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void placeOrder(List<Map<String, dynamic>> items, int total) {
+  void placeOrder(List<Map<String, dynamic>> items, int total, String paymentMethod) {
     orders.insert(0, {
       "id": "CRV-${DateTime.now().millisecondsSinceEpoch % 10000}",
       "res": activeRestaurant,
       "items": List.from(items),
       "total": total,
-      "status": isHindi ? "स्वीकृत (Confirmed)" : "Confirmed",
+      "payment": paymentMethod,
+      "status": isHindi ? "ऑर्डर स्वीकृत (Confirmed)" : "Confirmed",
       "time": "Just now",
     });
     cart.clear();
@@ -72,7 +73,7 @@ class AppState extends ChangeNotifier {
   }
 }
 
-// ---------------- APP ROOT ----------------
+// ---------------- MAIN APPLICATION ----------------
 class CravioApp extends StatelessWidget {
   const CravioApp({super.key});
 
@@ -85,12 +86,12 @@ class CravioApp extends StatelessWidget {
           title: 'Cravio - Ganj Basoda',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
-            scaffoldBackgroundColor: const Color(0xFFF9F8F6), // Warm Pearl Cream
-            primaryColor: const Color(0xFF262220), // Brown Diamond Smoke
+            scaffoldBackgroundColor: const Color(0xFFF9F8F6),
+            primaryColor: const Color(0xFF262220),
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF262220),
               primary: const Color(0xFF262220),
-              secondary: const Color(0xFFC5A059), // Champagne Diamond Gold
+              secondary: const Color(0xFFC5A059),
             ),
             fontFamily: 'Roboto',
           ),
@@ -292,7 +293,7 @@ final List<Map<String, dynamic>> ganjBasodaRestaurants = [
   },
 ];
 
-// ---------------- 1. CUSTOMER HOME SCREEN ----------------
+// ---------------- 1. HOME SCREEN ----------------
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
 
@@ -301,13 +302,13 @@ class CustomerHomeScreen extends StatefulWidget {
 }
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
-  Future<void> _refreshData() async {
+  Future<void> _refresh() async {
     await Future.delayed(const Duration(milliseconds: 600));
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          AppState.instance.isHindi ? "✓ मेन्यू और रेट्स तुरंत अपडेट हो गए!" : "✓ Menus & rates updated live!",
+          AppState.instance.isHindi ? "✓ मेन्यू, रेट्स और ऑफर्स लाइव सिंक हो गए!" : "✓ Menus & rates synced live!",
         ),
         duration: const Duration(seconds: 1),
         backgroundColor: const Color(0xFF262220),
@@ -320,10 +321,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final state = AppState.instance;
 
     return Scaffold(
-      key: ValueKey("HomeLangKey_${state.isHindi}"),
+      key: ValueKey("HomeFeed_${state.isHindi}"),
       backgroundColor: const Color(0xFFF9F8F6),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF262220), // Brown Diamond Smoke
+        backgroundColor: const Color(0xFF262220),
         elevation: 0,
         toolbarHeight: 88,
         title: Column(
@@ -331,7 +332,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           children: [
             Row(
               children: [
-                // Stylish CRAVIO Typography
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -361,7 +361,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ],
         ),
         actions: [
-          // Instant 0ms Language Toggle
           Center(
             child: Container(
               margin: const EdgeInsets.only(right: 14),
@@ -373,10 +372,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
               child: Row(
                 children: [
-                  _langButton("हि", state.isHindi, () {
+                  _langPill("हि", state.isHindi, () {
                     setState(() => state.toggleLang(true));
                   }),
-                  _langButton("EN", !state.isHindi, () {
+                  _langPill("EN", !state.isHindi, () {
                     setState(() => state.toggleLang(false));
                   }),
                 ],
@@ -388,11 +387,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       body: RefreshIndicator(
         color: const Color(0xFFC5A059),
         backgroundColor: const Color(0xFF262220),
-        onRefresh: _refreshData,
+        onRefresh: _refresh,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Delivery Address Bar
+            // Address Strip
             InkWell(
               onTap: () => _openAddressDialog(context),
               child: Container(
@@ -412,7 +411,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            state.isHindi ? "वर्तमान डिलीवरी पता (बदलने के लिए टैप करें):" : "Delivery Address (Tap to change):",
+                            state.isHindi ? "वर्तमान डिलीवरी पता (टैप करके बदलें):" : "Delivery Address (Tap to change):",
                             style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
                           ),
                           Text(
@@ -430,7 +429,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
             const SizedBox(height: 14),
 
-            // Digital Trust & Verified Banner
+            // Digital Trust Badges
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
@@ -441,11 +440,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _digitalBadge(Icons.star, "4.8 ★ रेटिंग्स", "1,450+ ऑर्डर्स"),
+                  _badge(Icons.star, "4.8 ★ रेटिंग्स", "1,450+ ऑर्डर्स"),
                   Container(height: 24, width: 1, color: Colors.grey.shade200),
-                  _digitalBadge(Icons.verified_user, "100% हाइजीन", "गंजबासौदा वेरिफाइड"),
+                  _badge(Icons.payments_outlined, "PhonePe & COD", "ऑनलाइन व नकद"),
                   Container(height: 24, width: 1, color: Colors.grey.shade200),
-                  _digitalBadge(Icons.bolt, "20-25 मिनट", "फास्ट डिलीवरी"),
+                  _badge(Icons.bolt, "20-25 मिनट", "फास्ट डिलीवरी"),
                 ],
               ),
             ),
@@ -484,7 +483,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          state.isHindi ? "गंजबासौदा के प्रसिद्ध रेस्टोरेंट्स\nअब सिर्फ एक क्लिक पर!" : "Ganj Basoda's Famous Dining\nDelivered Directly to You!",
+                          state.isHindi ? "गंजबासौदा के प्रसिद्ध रेस्टोरेंट्स\nअब ऑनलाइन पेमेंट के साथ!" : "Ganj Basoda's Famous Dining\nWith Online UPI Payments!",
                           style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.3),
                         ),
                       ],
@@ -652,7 +651,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  Widget _digitalBadge(IconData icon, String title, String sub) {
+  Widget _badge(IconData icon, String title, String sub) {
     return Column(
       children: [
         Icon(icon, size: 16, color: const Color(0xFFC5A059)),
@@ -663,7 +662,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     );
   }
 
-  Widget _langButton(String text, bool active, VoidCallback onTap) {
+  Widget _langPill(String text, bool active, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -919,7 +918,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: () {
-                      _openCheckout(context, selectedList, totalAmount);
+                      _openPaymentSheet(context, selectedList, totalAmount);
                     },
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -934,7 +933,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                         Padding(
                           padding: const EdgeInsets.only(right: 10),
                           child: Text(
-                            state.isHindi ? "बिल देखें और ऑर्डर करें ➔" : "View Cart & Order ➔",
+                            state.isHindi ? "पेमेंट व ऑर्डर ➔" : "Checkout ➔",
                             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
                         ),
@@ -948,116 +947,190 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
-  void _openCheckout(BuildContext context, List<Map<String, dynamic>> items, int subtotal) {
+  // Multi-Payment Checkout Bottom Sheet
+  void _openPaymentSheet(BuildContext context, List<Map<String, dynamic>> items, int subtotal) {
     final state = AppState.instance;
     const delivery = 20;
     final grandTotal = subtotal + delivery;
+
+    String selectedPayment = "PhonePe"; // Default to PhonePe
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                state.isHindi ? "अंतिम बिल विवरण (Cravio Bill)" : "Order Bill Summary",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
               ),
-              const Divider(height: 18),
-              ...items.map((i) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text("${i['title']} x ${i['qty']}", style: const TextStyle(fontSize: 14)),
-                        Text("₹${i['price'] * i['qty']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  )),
-              const Divider(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(state.isHindi ? "लोकल डिलीवरी चार्ज" : "Delivery Charge"),
-                  const Text("₹$delivery"),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(state.isHindi ? "कुल भुगतान (कैश ऑन डिलीवरी)" : "Total Due (COD)", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  Text("₹$grandTotal", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFFC5A059))),
-                ],
-              ),
-              const Divider(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+              child: SingleChildScrollView(
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      state.isHindi ? "डिलीवरी का पता:" : "Delivering To:",
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFC5A059)),
+                      state.isHindi ? "अंतिम बिल व पेमेंट का माध्यम" : "Bill & Payment Method",
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
                     ),
+                    const Divider(height: 18),
+                    ...items.map((i) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 3),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("${i['title']} x ${i['qty']}", style: const TextStyle(fontSize: 14)),
+                              Text("₹${i['price'] * i['qty']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        )),
+                    const Divider(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(state.isHindi ? "लोकल डिलीवरी चार्ज" : "Delivery Charge"),
+                        const Text("₹20"),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(state.isHindi ? "कुल देय राशि" : "Grand Total", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text("₹$grandTotal", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, color: Color(0xFFC5A059))),
+                      ],
+                    ),
+                    const Divider(height: 20),
+
+                    // Payment Mode Selector (PhonePe, GPay, Paytm, COD)
                     Text(
-                      state.fullAddress,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
+                      state.isHindi ? "पेमेंट का विकल्प चुनें:" : "Choose Payment Option:",
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
+                    ),
+                    const SizedBox(height: 10),
+
+                    _paymentTile(
+                      title: "PhonePe UPI (फ़ोनपे)",
+                      subtitle: "Fast & Instant Online Payment",
+                      icon: Icons.account_balance_wallet,
+                      color: const Color(0xFF5F259F),
+                      selected: selectedPayment == "PhonePe",
+                      onTap: () => setSheetState(() => selectedPayment = "PhonePe"),
+                    ),
+                    _paymentTile(
+                      title: "Google Pay / GPay (गूगल पे)",
+                      subtitle: "Direct Bank Transfer via UPI",
+                      icon: Icons.g_mobiledata,
+                      color: const Color(0xFF1A73E8),
+                      selected: selectedPayment == "Google Pay",
+                      onTap: () => setSheetState(() => selectedPayment = "Google Pay"),
+                    ),
+                    _paymentTile(
+                      title: "Paytm / Other UPI (पेटीएम)",
+                      subtitle: "Scan QR or Enter UPI ID",
+                      icon: Icons.qr_code,
+                      color: const Color(0xFF00B9F5),
+                      selected: selectedPayment == "Paytm / UPI",
+                      onTap: () => setSheetState(() => selectedPayment = "Paytm / UPI"),
+                    ),
+                    _paymentTile(
+                      title: "Cash on Delivery (कैश ऑन डिलीवरी)",
+                      subtitle: "घर पर सामान मिलने पर नकद दें",
+                      icon: Icons.money,
+                      color: Colors.green.shade800,
+                      selected: selectedPayment == "Cash on Delivery",
+                      onTap: () => setSheetState(() => selectedPayment = "Cash on Delivery"),
+                    ),
+
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                      child: Text(
+                        "${state.isHindi ? 'डिलीवरी पता:' : 'Address:'} ${state.fullAddress}",
+                        style: const TextStyle(fontSize: 11, color: Colors.black87),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF262220),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () {
+                          state.placeOrder(items, grandTotal, selectedPayment);
+                          Navigator.pop(ctx);
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                state.isHindi
+                                    ? "🎉 बधाई! आपका ऑर्डर होटल को भेज दिया गया ($selectedPayment)"
+                                    : "🎉 Order Confirmed via $selectedPayment",
+                              ),
+                              backgroundColor: const Color(0xFF262220),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          selectedPayment == "Cash on Delivery"
+                              ? (state.isHindi ? "ऑर्डर कन्फर्म करें (COD)" : "Confirm Order (COD)")
+                              : (state.isHindi ? "₹$grandTotal का भुगतान करें ($selectedPayment)" : "Pay ₹$grandTotal via $selectedPayment"),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF262220),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {
-                    state.placeOrder(items, grandTotal);
-                    Navigator.pop(ctx);
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          state.isHindi ? "🎉 बधाई! आपका ऑर्डर होटल को भेज दिया गया है।" : "🎉 Success! Order sent to restaurant.",
-                        ),
-                        backgroundColor: const Color(0xFF262220),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    state.isHindi ? "ऑर्डर कन्फर्म करें (कैश ऑन डिलीवरी)" : "Confirm Cash on Delivery",
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
+
+  Widget _paymentTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: selected ? color.withOpacity(0.08) : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: selected ? color : Colors.grey.shade200, width: selected ? 1.5 : 1),
+      ),
+      child: ListTile(
+        onTap: onTap,
+        dense: true,
+        leading: Icon(icon, color: color, size: 26),
+        title: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: selected ? color : Colors.black87)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        trailing: Icon(
+          selected ? Icons.radio_button_checked : Icons.radio_button_off,
+          color: selected ? color : Colors.grey,
+          size: 18,
+        ),
+      ),
+    );
+  }
 }
 
-// ---------------- 3. CUSTOMER ORDERS VIEW ----------------
+// ---------------- 3. CUSTOMER ORDERS SCREEN ----------------
 class CustomerOrdersScreen extends StatelessWidget {
   const CustomerOrdersScreen({super.key});
 
@@ -1124,13 +1197,22 @@ class CustomerOrdersScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(o["res"], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
+                              child: Text(
+                                "Payment: ${o["payment"]}",
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
+                              ),
+                            ),
                             const Divider(height: 16),
                             ...((o["items"] as List).map((i) => Text("• ${i['title']} x ${i['qty']}", style: const TextStyle(fontSize: 13)))),
                             const Divider(height: 16),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(state.isHindi ? "कुल बिल (कैश ऑन डिलीवरी)" : "Total Bill (COD)", style: const TextStyle(color: Colors.grey)),
+                                Text(state.isHindi ? "कुल बिल" : "Total Bill", style: const TextStyle(color: Colors.grey)),
                                 Text("₹${o['total']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFFC5A059))),
                               ],
                             ),
@@ -1146,7 +1228,7 @@ class CustomerOrdersScreen extends StatelessWidget {
   }
 }
 
-// ---------------- 4. CUSTOMER PROFILE VIEW ----------------
+// ---------------- 4. CUSTOMER PROFILE SCREEN ----------------
 class CustomerProfileScreen extends StatelessWidget {
   const CustomerProfileScreen({super.key});
 
@@ -1190,13 +1272,16 @@ class CustomerProfileScreen extends StatelessWidget {
               ),
               const Divider(height: 36),
               ListTile(
+                leading: const Icon(Icons.payment, color: Color(0xFF262220)),
+                title: Text(state.isHindi ? "पेमेंट के तरीके (Saved UPI)" : "Payment Methods"),
+                subtitle: const Text("PhonePe, Google Pay, Paytm & COD"),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+              ),
+              ListTile(
                 leading: const Icon(Icons.location_on_outlined, color: Color(0xFF262220)),
                 title: Text(state.isHindi ? "डिलीवरी पता बदलें" : "Edit Address"),
                 subtitle: Text(state.fullAddress),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                onTap: () {
-                  // Direct address edit
-                },
               ),
               ListTile(
                 leading: const Icon(Icons.support_agent, color: Color(0xFF262220)),
