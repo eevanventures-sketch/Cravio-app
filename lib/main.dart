@@ -1,33 +1,168 @@
+import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 void main() {
   runApp(const CravioApp());
 }
 
-// ---------------- APP CONTROLLER & STATE ----------------
+// ---------------- GLOBAL CONTROLLER & AUTO-SYNC ----------------
 class AppState extends ChangeNotifier {
   static final AppState instance = AppState();
 
   bool isHindi = true;
+  String currentRole = 'Customer'; // 'Customer', 'Restaurant', 'Admin'
+  String selectedRestaurant = "Hotel Marwari";
+  String merchantUpiId = "9826012345@upi";
 
+  // Customer Profile
   String userName = "राहुल शर्मा";
   String userPhone = "9826012345";
   String userArea = "नेहरू चौक";
   String userHouse = "मकान नं. 42, गली नं. 2";
   String userLandmark = "पुरानी गल्ला मंडी के पास, गंजबासौदा";
-
   String get fullAddress => "$userHouse, $userArea ($userLandmark)";
+
+  // Live Restaurants & Menus (Dynamic)
+  List<Map<String, dynamic>> restaurants = [
+    {
+      "name": "Hotel Marwari",
+      "hindiName": "होटल मारवाड़ी",
+      "image": "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80",
+      "area": "नेहरू चौक, गंजबासौदा",
+      "tag": "शुद्ध शाकाहारी थाली, दाल बाटी व मिठाई",
+      "rating": "4.8",
+      "time": "20-25 min",
+      "offer": "FLAT ₹30 OFF",
+      "upiId": "marwari.basoda@upi",
+      "menu": [
+        {"id": "m1", "name": "मारवाड़ी स्पेशल थाली", "price": 180, "isAvailable": true, "desc": "दाल, पनीर, सब्जी, 4 रोटी, चावल, रायता, मीठा"},
+        {"id": "m2", "name": "दाल बाटी चूरमा थाली", "price": 150, "isAvailable": true, "desc": "4 देशी घी बाटी, दाल, चूरमा व चटनी"},
+        {"id": "m3", "name": "पनीर बटर मसाला", "price": 160, "isAvailable": true, "desc": "रिच बटर ग्रेवी में ताजा पनीर"},
+      ]
+    },
+    {
+      "name": "Da Pixza Lover",
+      "hindiName": "दा पिज़्ज़ा लवर",
+      "image": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&q=80",
+      "area": "स्टेशन रोड, गंजबासौदा",
+      "tag": "चीज़ी पिज़्ज़ा, बर्गर, शेक्स और फ्राइज़",
+      "rating": "4.7",
+      "time": "15-20 min",
+      "offer": "20% OFF",
+      "upiId": "pixzalover@upi",
+      "menu": [
+        {"id": "p1", "name": "फार्महाउस चीज़ी पिज़्ज़ा (7 Inch)", "price": 199, "isAvailable": true, "desc": "शिमला मिर्च, प्याज, कॉर्न, डबल चीज़"},
+        {"id": "p2", "name": "क्रंची वेज चीज़ बर्गर", "price": 79, "isAvailable": true, "desc": "क्रिस्पी वेज टिक्की व चीज़ स्लाइस"},
+      ]
+    },
+    {
+      "name": "The Pride Restaurant",
+      "hindiName": "द प्राइड रेस्टोरेंट",
+      "image": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&q=80",
+      "area": "बरेथ रोड, गंजबासौदा",
+      "tag": "नॉर्थ इंडियन, चाइनीज़ व दम बिरयानी",
+      "rating": "4.6",
+      "time": "25-30 min",
+      "offer": "FREE DELIVERY",
+      "upiId": "thepride@upi",
+      "menu": [
+        {"id": "pr1", "name": "पनीर टिक्का मसाला", "price": 210, "isAvailable": true, "desc": "मसालेदार ग्रेवी में रोस्टेड पनीर"},
+        {"id": "pr2", "name": "शाही वेज दम बिरयानी", "price": 170, "isAvailable": true, "desc": "बासमती चावल, वेजीस व बूंदी रायता"},
+      ]
+    },
+    {
+      "name": "Sweets Ganga",
+      "hindiName": "स्वीट्स गंगा",
+      "image": "https://images.unsplash.com/photo-1505253758473-96b3015f27eb?w=600&q=80",
+      "area": "नेहरू चौक, गंजबासौदा",
+      "tag": "समोसा, कचौरी व देशी घी की जलेबी",
+      "rating": "4.9",
+      "time": "15 min",
+      "offer": "TOP SELLER",
+      "upiId": "gangasweets@upi",
+      "menu": [
+        {"id": "s1", "name": "गरमा-गरम समोसा (2 पीस)", "price": 30, "isAvailable": true, "desc": "आलू-मटर मसाला व चटनी"},
+        {"id": "s2", "name": "देशी घी की जलेबी (250g)", "price": 80, "isAvailable": true, "desc": "शुद्ध देशी घी में बनी कुरकुरी जलेबी"},
+      ]
+    }
+  ];
 
   Map<String, int> cart = {};
   String activeRestaurant = "";
   List<Map<String, dynamic>> orders = [];
+
+  // Live Auto-Sync from GitHub Backend File
+  Future<void> syncFromGitHub() async {
+    try {
+      final client = HttpClient();
+      final uri = Uri.parse(
+        'https://raw.githubusercontent.com/eevanventures-sketch/Cravio-app/main/cravio_control.json?t=${DateTime.now().millisecondsSinceEpoch}',
+      );
+      final req = await client.getUrl(uri);
+      final res = await req.close();
+      if (res.statusCode == 200) {
+        final body = await res.transform(utf8.decoder).join();
+        final data = jsonDecode(body) as Map<String, dynamic>;
+        if (data["restaurants"] != null) {
+          restaurants = List<Map<String, dynamic>>.from(data["restaurants"]);
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
+  }
 
   void toggleLang(bool hindi) {
     isHindi = hindi;
     notifyListeners();
   }
 
-  void updateAddress(String name, String phone, String area, String house, String landmark) {
+  void switchRole(String role, {String res = "Hotel Marwari"}) {
+    currentRole = role;
+    selectedRestaurant = res;
+    notifyListeners();
+  }
+
+  // Menu Management by Restaurant / Admin
+  void updateDishPrice(String resName, String dishId, int newPrice) {
+    for (var r in restaurants) {
+      if (r["name"] == resName) {
+        for (var d in (r["menu"] as List)) {
+          if (d["id"] == dishId) {
+            d["price"] = newPrice;
+            notifyListeners();
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  void toggleDishAvailability(String resName, String dishId) {
+    for (var r in restaurants) {
+      if (r["name"] == resName) {
+        for (var d in (r["menu"] as List)) {
+          if (d["id"] == dishId) {
+            d["isAvailable"] = !(d["isAvailable"] ?? true);
+            notifyListeners();
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  void addNewDish(String resName, Map<String, dynamic> dish) {
+    for (var r in restaurants) {
+      if (r["name"] == resName) {
+        (r["menu"] as List).add(dish);
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void updateProfile({required String name, required String phone, required String area, required String house, required String landmark}) {
     userName = name;
     userPhone = phone;
     userArea = area;
@@ -37,9 +172,7 @@ class AppState extends ChangeNotifier {
   }
 
   void addToCart(String item, String res) {
-    if (activeRestaurant.isNotEmpty && activeRestaurant != res) {
-      cart.clear();
-    }
+    if (activeRestaurant.isNotEmpty && activeRestaurant != res) cart.clear();
     activeRestaurant = res;
     cart[item] = (cart[item] ?? 0) + 1;
     notifyListeners();
@@ -57,25 +190,71 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void placeOrder(List<Map<String, dynamic>> items, int total, String paymentMethod) {
+  void placeOrder(List<Map<String, dynamic>> items, int total, String payment) {
     orders.insert(0, {
       "id": "CRV-${DateTime.now().millisecondsSinceEpoch % 10000}",
+      "customerName": userName,
+      "customerPhone": userPhone,
+      "address": fullAddress,
       "res": activeRestaurant,
       "items": List.from(items),
       "total": total,
-      "payment": paymentMethod,
-      "status": isHindi ? "ऑर्डर स्वीकृत (Confirmed)" : "Confirmed",
-      "time": "Just now",
+      "payment": payment,
+      "status": "ऑर्डर प्राप्त हुआ (Order Placed)",
+      "prepTime": "तैयारी शुरू हो रही है",
     });
     cart.clear();
     activeRestaurant = "";
     notifyListeners();
   }
+
+  void acceptOrderWithTime(String orderId, int minutes) {
+    for (var o in orders) {
+      if (o["id"] == orderId) {
+        o["status"] = "खाना तैयार हो रहा है (Cooking)";
+        o["prepTime"] = "$minutes मिनट में तैयार होगा";
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void markOrderReady(String orderId) {
+    for (var o in orders) {
+      if (o["id"] == orderId) {
+        o["status"] = "तैयार है (Ready for Pickup)";
+        o["prepTime"] = "डिलीवरी के लिए तैयार!";
+        notifyListeners();
+        return;
+      }
+    }
+  }
+
+  void markOrderDelivered(String orderId) {
+    for (var o in orders) {
+      if (o["id"] == orderId) {
+        o["status"] = "सफलतापूर्वक डिलीवर (Delivered)";
+        notifyListeners();
+        return;
+      }
+    }
+  }
 }
 
-// ---------------- MAIN APPLICATION ----------------
-class CravioApp extends StatelessWidget {
+// ---------------- ROOT APP ----------------
+class CravioApp extends StatefulWidget {
   const CravioApp({super.key});
+
+  @override
+  State<CravioApp> createState() => _CravioAppState();
+}
+
+class _CravioAppState extends State<CravioApp> {
+  @override
+  void initState() {
+    super.initState();
+    AppState.instance.syncFromGitHub();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -95,27 +274,39 @@ class CravioApp extends StatelessWidget {
             ),
             fontFamily: 'Roboto',
           ),
-          home: const MainNavigationScreen(),
+          home: const MasterRoleRouter(),
         );
       },
     );
   }
 }
 
-class MainNavigationScreen extends StatefulWidget {
-  const MainNavigationScreen({super.key});
+class MasterRoleRouter extends StatelessWidget {
+  const MasterRoleRouter({super.key});
 
   @override
-  State<MainNavigationScreen> createState() => _MainNavigationScreenState();
+  Widget build(BuildContext context) {
+    final state = AppState.instance;
+    if (state.currentRole == 'Restaurant') return const RestaurantPartnerScreen();
+    if (state.currentRole == 'Admin') return const EevaanAdminScreen();
+    return const CustomerPortalView();
+  }
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+// ---------------- 1. CUSTOMER PORTAL VIEW ----------------
+class CustomerPortalView extends StatefulWidget {
+  const CustomerPortalView({super.key});
+
+  @override
+  State<CustomerPortalView> createState() => _CustomerPortalViewState();
+}
+
+class _CustomerPortalViewState extends State<CustomerPortalView> {
   int _tab = 0;
 
   @override
   Widget build(BuildContext context) {
     final state = AppState.instance;
-
     final pages = [
       const CustomerHomeScreen(),
       const CustomerOrdersScreen(),
@@ -125,35 +316,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return Scaffold(
       body: pages[_tab],
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
-        ),
+        decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1))),
         child: BottomNavigationBar(
           currentIndex: _tab,
           backgroundColor: Colors.white,
           elevation: 0,
           selectedItemColor: const Color(0xFF262220),
           unselectedItemColor: Colors.grey.shade400,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           onTap: (i) => setState(() => _tab = i),
           items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.storefront_outlined),
-              activeIcon: const Icon(Icons.storefront),
-              label: state.isHindi ? "रेस्टोरेंट" : "Restaurants",
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.receipt_long_outlined),
-              activeIcon: const Icon(Icons.receipt_long),
-              label: state.isHindi ? "मेरे ऑर्डर" : "My Orders",
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person_outline),
-              activeIcon: const Icon(Icons.person),
-              label: state.isHindi ? "प्रोफ़ाइल" : "Profile",
-            ),
+            BottomNavigationBarItem(icon: const Icon(Icons.storefront_outlined), activeIcon: const Icon(Icons.storefront), label: state.isHindi ? "रेस्टोरेंट" : "Food"),
+            BottomNavigationBarItem(icon: const Icon(Icons.receipt_long_outlined), activeIcon: const Icon(Icons.receipt_long), label: state.isHindi ? "मेरे ऑर्डर" : "Orders"),
+            BottomNavigationBarItem(icon: const Icon(Icons.person_outline), activeIcon: const Icon(Icons.person), label: state.isHindi ? "मेरी प्रोफ़ाइल" : "Profile"),
           ],
         ),
       ),
@@ -161,139 +335,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
-// ---------------- RESTAURANTS DATABASE ----------------
-final List<Map<String, dynamic>> ganjBasodaRestaurants = [
-  {
-    "name": "Hotel Marwari",
-    "hindiName": "होटल मारवाड़ी",
-    "image": "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=600&q=80",
-    "area": "नेहरू चौक, गंजबासौदा",
-    "tag": "शुद्ध शाकाहारी थाली, दाल बाटी व मिठाई",
-    "enTag": "Pure Veg Thali, Dal Baati & Sweets",
-    "rating": "4.8",
-    "reviewsCount": "1,240+",
-    "time": "20-25 min",
-    "offer": "FLAT ₹30 OFF",
-    "menu": [
-      {
-        "name": "मारवाड़ी स्पेशल थाली",
-        "en": "Marwari Special Thali",
-        "price": 180,
-        "image": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80",
-        "desc": "दाल तड़का, शाही पनीर, सूखी सब्जी, 4 बटर रोटी, चावल, रायता व मीठा",
-        "enDesc": "Dal Tadka, Shahi Paneer, Sabji, 4 Butter Roti, Rice, Raita & Sweet",
-      },
-      {
-        "name": "दाल बाटी चूरमा स्पेशल थाली",
-        "en": "Dal Baati Churma Thali",
-        "price": 150,
-        "image": "https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=400&q=80",
-        "desc": "4 देशी घी बाटी, स्वादिष्ट दाल, स्पेशल चूरमा और चटनी",
-        "enDesc": "4 Desi Ghee Baati with Dal, Sweet Churma & Chutney",
-      },
-      {
-        "name": "पनीर बटर मसाला",
-        "en": "Paneer Butter Masala",
-        "price": 160,
-        "image": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=400&q=80",
-        "desc": "ताजा मलाईदार पनीर रिच टमॅटो बटर ग्रेवी में",
-        "enDesc": "Rich cottage cheese in creamy tomato butter gravy",
-      },
-    ]
-  },
-  {
-    "name": "Da Pixza Lover",
-    "hindiName": "दा पिज़्ज़ा लवर",
-    "image": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=600&q=80",
-    "area": "स्टेशन रोड, गंजबासौदा",
-    "tag": "चीज़ी पिज़्ज़ा, बर्गर, शेक्स और फ्राइज़",
-    "enTag": "Loaded Pizzas, Burgers & Shakes",
-    "rating": "4.7",
-    "reviewsCount": "890+",
-    "time": "15-20 min",
-    "offer": "20% OFF",
-    "menu": [
-      {
-        "name": "फार्महाउस चीज़ी पिज़्ज़ा (7 Inch)",
-        "en": "Farmhouse Cheesy Pizza",
-        "price": 199,
-        "image": "https://images.unsplash.com/photo-1574071318508-1cdbab80d002?w=400&q=80",
-        "desc": "शिमला मिर्च, प्याज, स्वीट कॉर्न और डबल मोज़ेरेला चीज़",
-        "enDesc": "Capsicum, Onion, Sweet Corn & Double Mozzarella",
-      },
-      {
-        "name": "क्रंची वेज चीज़ बर्गर",
-        "en": "Crunchy Veg Cheese Burger",
-        "price": 79,
-        "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&q=80",
-        "desc": "क्रिस्पी वेज टिक्की, चीज़ स्लाइस व प्रीमियम सॉस",
-        "enDesc": "Crispy veg patty, cheese slice & tasty sauce",
-      },
-    ]
-  },
-  {
-    "name": "The Pride Restaurant",
-    "hindiName": "द प्राइड रेस्टोरेंट",
-    "image": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&q=80",
-    "area": "बरेथ रोड, गंजबासौदा",
-    "tag": "नॉर्थ इंडियन, चाइनीज़ व दम बिरयानी",
-    "enTag": "North Indian, Chinese & Biryani",
-    "rating": "4.6",
-    "reviewsCount": "620+",
-    "time": "25-30 min",
-    "offer": "FREE DELIVERY",
-    "menu": [
-      {
-        "name": "पनीर टिक्का मसाला",
-        "en": "Paneer Tikka Masala",
-        "price": 210,
-        "image": "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?w=400&q=80",
-        "desc": "तंदूर रोस्टेड पनीर क्यूब्स तीखी गाढ़ी ग्रेवी में",
-        "enDesc": "Charcoal grilled paneer in rich spiced gravy",
-      },
-      {
-        "name": "शाही वेज दम बिरयानी",
-        "en": "Shahi Veg Dum Biryani",
-        "price": 170,
-        "image": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&q=80",
-        "desc": "बासमती चावल, दम कुक्ड वेजीस, बूंदी रायता के साथ",
-        "enDesc": "Fragrant basmati rice cooked with herbs & raita",
-      },
-    ]
-  },
-  {
-    "name": "Sweets Ganga",
-    "hindiName": "स्वीट्स गंगा",
-    "image": "https://images.unsplash.com/photo-1505253758473-96b3015f27eb?w=600&q=80",
-    "area": "नेहरू चौक, गंजबासौदा",
-    "tag": "समोसा, कचौरी व देशी घी की जलेबी",
-    "enTag": "Samosa, Kachori & Desi Ghee Jalebi",
-    "rating": "4.9",
-    "reviewsCount": "1,850+",
-    "time": "15 min",
-    "offer": "TOP SELLER",
-    "menu": [
-      {
-        "name": "गरमा-गरम समोसा (2 पीस)",
-        "en": "Hot Samosa (2 Pcs)",
-        "price": 30,
-        "image": "https://images.unsplash.com/photo-1601050690597-df0568f70950?w=400&q=80",
-        "desc": "मसालेदार आलू समोसा, हरी व मीठी चटनी के साथ",
-        "enDesc": "Crispy spiced potato samosas with tangy chutneys",
-      },
-      {
-        "name": "देशी घी की जलेबी (250 ग्राम)",
-        "en": "Desi Ghee Jalebi (250g)",
-        "price": 80,
-        "image": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=400&q=80",
-        "desc": "कुरकुरी और रसीली शुद्ध देशी घी में तली जलेबी",
-        "enDesc": "Crispy golden spirals soaked in saffron sugar syrup",
-      },
-    ]
-  },
-];
-
-// ---------------- 1. HOME SCREEN ----------------
+// ---------------- 2. CUSTOMER HOME SCREEN ----------------
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
 
@@ -302,31 +344,17 @@ class CustomerHomeScreen extends StatefulWidget {
 }
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
-  Future<void> _refresh() async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          AppState.instance.isHindi ? "✓ मेन्यू, रेट्स और ऑफर्स लाइव सिंक हो गए!" : "✓ Menus & rates synced live!",
-        ),
-        duration: const Duration(seconds: 1),
-        backgroundColor: const Color(0xFF262220),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = AppState.instance;
 
     return Scaffold(
-      key: ValueKey("HomeFeed_${state.isHindi}"),
+      key: ValueKey("CustomerHome_${state.isHindi}"),
       backgroundColor: const Color(0xFFF9F8F6),
       appBar: AppBar(
         backgroundColor: const Color(0xFF262220),
         elevation: 0,
-        toolbarHeight: 88,
+        toolbarHeight: 92,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -341,12 +369,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ),
                   child: const Text(
                     "C R A V I O",
-                    style: TextStyle(
-                      color: Color(0xFFC5A059),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 18,
-                      letterSpacing: 3,
-                    ),
+                    style: TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.w900, fontSize: 18, letterSpacing: 3),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -361,10 +384,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.switch_account_outlined, color: Color(0xFFC5A059)),
+            tooltip: "पोर्टल बदलें (Customer / Restaurant / Admin)",
+            onPressed: () => _openRoleSwitcher(context),
+          ),
           Center(
             child: Container(
-              margin: const EdgeInsets.only(right: 14),
-              padding: const EdgeInsets.all(3),
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
@@ -372,12 +400,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
               child: Row(
                 children: [
-                  _langPill("हि", state.isHindi, () {
-                    setState(() => state.toggleLang(true));
-                  }),
-                  _langPill("EN", !state.isHindi, () {
-                    setState(() => state.toggleLang(false));
-                  }),
+                  _langPill("हि", state.isHindi, () => setState(() => state.toggleLang(true))),
+                  _langPill("EN", !state.isHindi, () => setState(() => state.toggleLang(false))),
                 ],
               ),
             ),
@@ -387,105 +411,94 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       body: RefreshIndicator(
         color: const Color(0xFFC5A059),
         backgroundColor: const Color(0xFF262220),
-        onRefresh: _refresh,
+        onRefresh: () async {
+          await state.syncFromGitHub();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("✓ बैकएंड से नया डेटा सिंक हो गया!"), duration: Duration(seconds: 1), backgroundColor: Color(0xFF262220)),
+          );
+        },
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Address Strip
-            InkWell(
-              onTap: () => _openAddressDialog(context),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade200),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6)],
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFFC5A059)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            state.isHindi ? "वर्तमान डिलीवरी पता (टैप करके बदलें):" : "Delivery Address (Tap to change):",
-                            style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            state.fullAddress,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+            // Quick Switch Strip
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC5A059).withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.person_pin, size: 16, color: Color(0xFF262220)),
+                      SizedBox(width: 6),
+                      Text("मोड: ग्राहक पोर्टल (Customer Mode)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF262220))),
+                    ],
+                  ),
+                  InkWell(
+                    onTap: () => _openRoleSwitcher(context),
+                    child: const Text("पोर्टल बदलें ➔", style: TextStyle(color: Color(0xFF262220), fontWeight: FontWeight.bold, fontSize: 12)),
+                  )
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Address Box
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFFC5A059)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(state.isHindi ? "डिलीवरी का पता (प्रोफ़ाइल से बदलें):" : "Delivering To:", style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                        Text(state.fullAddress, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF262220)), overflow: TextOverflow.ellipsis),
+                      ],
                     ),
-                    const Icon(Icons.keyboard_arrow_right, color: Colors.grey),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 14),
 
-            // Digital Trust Badges
+            // Badges
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.3)),
-              ),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.3))),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _badge(Icons.star, "4.8 ★ रेटिंग्स", "1,450+ ऑर्डर्स"),
                   Container(height: 24, width: 1, color: Colors.grey.shade200),
-                  _badge(Icons.payments_outlined, "PhonePe & COD", "ऑनलाइन व नकद"),
+                  _badge(Icons.qr_code_2, "UPI बारकोड", "PhonePe व GPay"),
                   Container(height: 24, width: 1, color: Colors.grey.shade200),
-                  _badge(Icons.bolt, "20-25 मिनट", "फास्ट डिलीवरी"),
+                  _badge(Icons.timer, "लाइव टाइमिंग", "30 मिनट में खाना"),
                 ],
               ),
             ),
             const SizedBox(height: 16),
 
-            // Executive Banner
+            // Banner
             Container(
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF262220), Color(0xFF383330)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFF262220).withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
-              ),
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF262220), Color(0xFF383330)]), borderRadius: BorderRadius.circular(16)),
               child: Row(
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFC5A059),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            state.isHindi ? "काउंटर रेट पर घर बैठे" : "AUTHENTIC COUNTER RATES",
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                          ),
-                        ),
+                        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFC5A059), borderRadius: BorderRadius.circular(4)), child: const Text("COUNTER RATES ASSURED", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
                         const SizedBox(height: 8),
-                        Text(
-                          state.isHindi ? "गंजबासौदा के प्रसिद्ध रेस्टोरेंट्स\nअब ऑनलाइन पेमेंट के साथ!" : "Ganj Basoda's Famous Dining\nWith Online UPI Payments!",
-                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.3),
-                        ),
+                        Text(state.isHindi ? "गंजबासौदा के प्रसिद्ध रेस्टोरेंट्स\nसीधा काउंटर रेट पर घर बैठे!" : "Ganj Basoda's Best Dining\nDirect Counter Menu Rates!", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.3)),
                       ],
                     ),
                   ),
@@ -496,6 +509,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       height: 75,
                       width: 75,
                       fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(width: 75, height: 75, color: const Color(0xFFC5A059), child: const Icon(Icons.restaurant, color: Colors.white)),
                     ),
                   ),
                 ],
@@ -503,28 +517,19 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
             const SizedBox(height: 22),
 
-            Text(
-              state.isHindi ? "गंजबासौदा के प्रमुख रेस्टोरेंट्स" : "Popular Restaurants in Ganj Basoda",
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
-            ),
+            Text(state.isHindi ? "गंजबासौदा के प्रमुख रेस्टोरेंट्स" : "Popular Restaurants in Ganj Basoda", style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
             const SizedBox(height: 14),
 
-            // Restaurant Cards
-            ...ganjBasodaRestaurants.map((res) {
+            // Restaurants
+            ...state.restaurants.map((res) {
               return Card(
                 margin: const EdgeInsets.only(bottom: 18),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: Colors.grey.shade200),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade200)),
                 clipBehavior: Clip.antiAlias,
                 elevation: 1.5,
                 child: InkWell(
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => RestaurantMenuScreen(restaurant: res)),
-                    );
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerMenuDetailScreen(restaurant: res)));
                   },
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,21 +541,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             height: 155,
                             width: double.infinity,
                             fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(height: 155, color: Colors.grey.shade200, child: const Center(child: Icon(Icons.fastfood, size: 50, color: Color(0xFFC5A059)))),
                           ),
                           Positioned(
                             top: 12,
                             left: 12,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF262220),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFC5A059)),
-                              ),
-                              child: Text(
-                                res["offer"],
-                                style: const TextStyle(color: Color(0xFFC5A059), fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
+                              decoration: BoxDecoration(color: const Color(0xFF262220), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFC5A059))),
+                              child: Text(res["offer"] ?? "", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 11, fontWeight: FontWeight.bold)),
                             ),
                           ),
                           Positioned(
@@ -558,18 +557,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             right: 12,
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.black87,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(6)),
                               child: Row(
                                 children: [
                                   const Icon(Icons.timer_outlined, size: 12, color: Colors.white),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    res["time"],
-                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
+                                  Text(res["time"] ?? "", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ],
                               ),
                             ),
@@ -584,57 +577,26 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  state.isHindi ? res["hindiName"] : res["name"],
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
-                                ),
+                                Text(state.isHindi ? (res["hindiName"] ?? res["name"]) : res["name"], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF262220),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFFC5A059)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        "★ ${res["rating"]}",
-                                        style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.bold),
-                                      ),
-                                      Text(
-                                        " (${res["reviewsCount"]})",
-                                        style: const TextStyle(color: Colors.white70, fontSize: 10),
-                                      ),
-                                    ],
-                                  ),
+                                  decoration: BoxDecoration(color: const Color(0xFF262220), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFC5A059))),
+                                  child: Text("★ ${res["rating"]}", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.bold)),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 3),
-                            Text(res["area"], style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                            Text(
-                              state.isHindi ? res["tag"] : res["enTag"],
-                              style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
+                            Text(res["area"] ?? "", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                            Text(res["tag"] ?? "", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.w600)),
                             const Divider(height: 22),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF262220),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
+                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                                 onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => RestaurantMenuScreen(restaurant: res)),
-                                  );
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerMenuDetailScreen(restaurant: res)));
                                 },
-                                child: Text(
-                                  state.isHindi ? "मेन्यू देखें और खाना चुनें ➔" : "View Menu & Order ➔",
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                                ),
+                                child: Text(state.isHindi ? "मेन्यू देखें और खाना चुनें ➔" : "View Menu & Order ➔", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                               ),
                             ),
                           ],
@@ -667,75 +629,51 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: active ? const Color(0xFFC5A059) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: active ? Colors.white : Colors.white70,
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-        ),
+        decoration: BoxDecoration(color: active ? const Color(0xFFC5A059) : Colors.transparent, borderRadius: BorderRadius.circular(16)),
+        child: Text(text, style: TextStyle(color: active ? Colors.white : Colors.white70, fontWeight: FontWeight.bold, fontSize: 12)),
       ),
     );
   }
 
-  void _openAddressDialog(BuildContext context) {
-    final state = AppState.instance;
-    final nameCtrl = TextEditingController(text: state.userName);
-    final phoneCtrl = TextEditingController(text: state.userPhone);
-    final areaCtrl = TextEditingController(text: state.userArea);
-    final houseCtrl = TextEditingController(text: state.userHouse);
-    final landmarkCtrl = TextEditingController(text: state.userLandmark);
-
+  void _openRoleSwitcher(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-          ),
+          padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                state.isHindi ? "डिलीवरी का पता अपडेट करें" : "Update Delivery Address",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
+              const Text("पोर्टल बदलें (Select Role):", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
+              const Divider(height: 20),
+              ListTile(
+                leading: const Icon(Icons.person, color: Color(0xFFC5A059), size: 28),
+                title: const Text("👤 ग्राहक पोर्टल (Customer Mode)", style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text("खाना ऑर्डर करने के लिए"),
+                onTap: () {
+                  AppState.instance.switchRole("Customer");
+                  Navigator.pop(ctx);
+                },
               ),
-              const Divider(),
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "कस्टमर का नाम")),
-              TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "मोबाइल नंबर")),
-              TextField(controller: areaCtrl, decoration: const InputDecoration(labelText: "मोहल्ला / एरिया (जैसे: नेहरू चौक, बरेथ रोड)")),
-              TextField(controller: houseCtrl, decoration: const InputDecoration(labelText: "मकान / दुकान नंबर")),
-              TextField(controller: landmarkCtrl, decoration: const InputDecoration(labelText: "लैंडमार्क (जैसे: भारत पेट्रोल पंप के पास)")),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF262220),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {
-                    state.updateAddress(nameCtrl.text, phoneCtrl.text, areaCtrl.text, houseCtrl.text, landmarkCtrl.text);
-                    Navigator.pop(ctx);
-                    setState(() {});
-                  },
-                  child: Text(
-                    state.isHindi ? "पता सेव करें" : "Save Address",
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ),
+              ListTile(
+                leading: const Icon(Icons.storefront, color: Color(0xFFC5A059), size: 28),
+                title: const Text("🏪 रेस्टोरेंट पार्टनर (Restaurant Mode)", style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text("होटल मारवाड़ी: ऑर्डर एक्सेप्ट करें, टाइमिंग दें, रेट बदलें"),
+                onTap: () {
+                  AppState.instance.switchRole("Restaurant", res: "Hotel Marwari");
+                  Navigator.pop(ctx);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings, color: Color(0xFFC5A059), size: 28),
+                title: const Text("🛡️ ईवान वेंचर्स एडमिन (Super Admin)", style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text("कमीशन, कुल बिक्री और पूरे बिज़नेस का हिसाब"),
+                onTap: () {
+                  AppState.instance.switchRole("Admin");
+                  Navigator.pop(ctx);
+                },
               ),
             ],
           ),
@@ -745,16 +683,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 }
 
-// ---------------- 2. RESTAURANT MENU DETAIL SCREEN ----------------
-class RestaurantMenuScreen extends StatefulWidget {
+// ---------------- 3. CUSTOMER MENU & PAYMENT (WITH LIVE UPI QR) ----------------
+class CustomerMenuDetailScreen extends StatefulWidget {
   final Map<String, dynamic> restaurant;
-  const RestaurantMenuScreen({super.key, required this.restaurant});
+  const CustomerMenuDetailScreen({super.key, required this.restaurant});
 
   @override
-  State<RestaurantMenuScreen> createState() => _RestaurantMenuScreenState();
+  State<CustomerMenuDetailScreen> createState() => _CustomerMenuDetailScreenState();
 }
 
-class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
+class _CustomerMenuDetailScreenState extends State<CustomerMenuDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -775,11 +713,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               int price = (item["price"] as num).toInt();
               totalAmount += price * qty;
               totalCount += qty;
-              selectedList.add({
-                "title": state.isHindi ? item["name"] : item["en"],
-                "price": price,
-                "qty": qty,
-              });
+              selectedList.add({"title": item["name"], "price": price, "qty": qty});
             }
           }
         });
@@ -793,11 +727,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  state.isHindi ? res["hindiName"] : res["name"],
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(res["area"], style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                Text(state.isHindi ? (res["hindiName"] ?? res["name"]) : res["name"], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(res["area"] ?? "", style: const TextStyle(fontSize: 11, color: Colors.white70)),
               ],
             ),
           ),
@@ -810,6 +741,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               final String itemKey = item["name"];
               final int qty = state.cart[itemKey] ?? 0;
               final int itemPrice = (item["price"] as num).toInt();
+              final bool isAvail = item["isAvailable"] ?? true;
 
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -820,85 +752,41 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                       children: [
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(border: Border.all(color: Colors.green, width: 1.5)),
-                              child: const Icon(Icons.circle, color: Colors.green, size: 8),
-                            ),
+                            Container(padding: const EdgeInsets.all(2), decoration: BoxDecoration(border: Border.all(color: Colors.green, width: 1.5)), child: const Icon(Icons.circle, color: Colors.green, size: 8)),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                state.isHindi ? item["name"] : item["en"],
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF262220)),
-                              ),
-                            ),
+                            Expanded(child: Text(item["name"], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF262220)))),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          "₹$itemPrice",
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFC5A059)),
-                        ),
+                        Text("₹$itemPrice", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFC5A059))),
                         const SizedBox(height: 4),
-                        Text(
-                          state.isHindi ? item["desc"] : item["enDesc"],
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                        ),
+                        Text(item["desc"] ?? "", style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                        if (!isAvail)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text("⚠ आज समाप्त है (Out of Stock)", style: TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Stack(
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          item["image"],
-                          width: 95,
-                          height: 85,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF262220)),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 4)],
-                        ),
-                        child: qty == 0
+                  Container(
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFF262220))),
+                    child: !isAvail
+                        ? const Padding(padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4), child: Text("समाप्त", style: TextStyle(color: Colors.grey, fontSize: 11)))
+                        : qty == 0
                             ? InkWell(
                                 onTap: () => state.addToCart(itemKey, rName),
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                                  child: Text(
-                                    "+ ADD",
-                                    style: TextStyle(color: Color(0xFF262220), fontWeight: FontWeight.bold, fontSize: 12),
-                                  ),
-                                ),
+                                child: const Padding(padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6), child: Text("+ ADD", style: TextStyle(color: Color(0xFF262220), fontWeight: FontWeight.bold, fontSize: 12))),
                               )
                             : Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  IconButton(
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.all(4),
-                                    icon: const Icon(Icons.remove, size: 14, color: Color(0xFF262220)),
-                                    onPressed: () => state.removeFromCart(itemKey),
-                                  ),
+                                  IconButton(constraints: const BoxConstraints(), padding: const EdgeInsets.all(4), icon: const Icon(Icons.remove, size: 14, color: Color(0xFF262220)), onPressed: () => state.removeFromCart(itemKey)),
                                   Text("$qty", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                  IconButton(
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.all(4),
-                                    icon: const Icon(Icons.add, size: 14, color: Color(0xFF262220)),
-                                    onPressed: () => state.addToCart(itemKey, rName),
-                                  ),
+                                  IconButton(constraints: const BoxConstraints(), padding: const EdgeInsets.all(4), icon: const Icon(Icons.add, size: 14, color: Color(0xFF262220)), onPressed: () => state.addToCart(itemKey, rName)),
                                 ],
                               ),
-                      )
-                    ],
                   )
                 ],
               );
@@ -907,36 +795,15 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           bottomNavigationBar: totalCount > 0
               ? Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
-                  ),
+                  decoration: const BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))]),
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF262220),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () {
-                      _openPaymentSheet(context, selectedList, totalAmount);
-                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    onPressed: () => _openDynamicPaymentSheet(context, selectedList, totalAmount, res["upiId"] ?? state.merchantUpiId),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Text(
-                            "$totalCount ${state.isHindi ? 'सामान' : 'Items'} | ₹$totalAmount",
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: Text(
-                            state.isHindi ? "पेमेंट व ऑर्डर ➔" : "Checkout ➔",
-                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ),
+                        Padding(padding: const EdgeInsets.only(left: 10), child: Text("$totalCount सामान | ₹$totalAmount", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white))),
+                        Padding(padding: const EdgeInsets.only(right: 10), child: const Text("पेमेंट व बारकोड ➔", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white))),
                       ],
                     ),
                   ),
@@ -947,13 +814,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
-  // Multi-Payment Checkout Bottom Sheet
-  void _openPaymentSheet(BuildContext context, List<Map<String, dynamic>> items, int subtotal) {
+  void _openDynamicPaymentSheet(BuildContext context, List<Map<String, dynamic>> items, int subtotal, String targetUpi) {
     final state = AppState.instance;
     const delivery = 20;
     final grandTotal = subtotal + delivery;
-
-    String selectedPayment = "PhonePe"; // Default to PhonePe
+    String selectedPayment = "DynamicQR";
+    final qrApiUrl = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=$targetUpi&pn=Cravio%20Basoda&am=$grandTotal&cu=INR";
 
     showModalBottomSheet(
       context: context,
@@ -963,130 +829,68 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-              ),
+              padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      state.isHindi ? "अंतिम बिल व पेमेंट का माध्यम" : "Bill & Payment Method",
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
-                    ),
+                    Text("अंतिम बिल व पेमेंट (Dynamic UPI QR)", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
                     const Divider(height: 18),
                     ...items.map((i) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 3),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text("${i['title']} x ${i['qty']}", style: const TextStyle(fontSize: 14)),
-                              Text("₹${i['price'] * i['qty']}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ],
-                          ),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text("${i['title']} x ${i['qty']}"), Text("₹${i['price'] * i['qty']}", style: const TextStyle(fontWeight: FontWeight.bold))]),
                         )),
                     const Divider(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(state.isHindi ? "लोकल डिलीवरी चार्ज" : "Delivery Charge"),
-                        const Text("₹20"),
-                      ],
-                    ),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: const [Text("लोकल डिलीवरी चार्ज"), Text("₹20")]),
                     const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(state.isHindi ? "कुल देय राशि" : "Grand Total", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                        Text("₹$grandTotal", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, color: Color(0xFFC5A059))),
-                      ],
-                    ),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("कुल देय राशि", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)), Text("₹$grandTotal", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, color: Color(0xFFC5A059)))]),
                     const Divider(height: 20),
 
-                    // Payment Mode Selector (PhonePe, GPay, Paytm, COD)
-                    Text(
-                      state.isHindi ? "पेमेंट का विकल्प चुनें:" : "Choose Payment Option:",
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
-                    ),
-                    const SizedBox(height: 10),
-
-                    _paymentTile(
-                      title: "PhonePe UPI (फ़ोनपे)",
-                      subtitle: "Fast & Instant Online Payment",
-                      icon: Icons.account_balance_wallet,
-                      color: const Color(0xFF5F259F),
-                      selected: selectedPayment == "PhonePe",
-                      onTap: () => setSheetState(() => selectedPayment = "PhonePe"),
-                    ),
-                    _paymentTile(
-                      title: "Google Pay / GPay (गूगल पे)",
-                      subtitle: "Direct Bank Transfer via UPI",
-                      icon: Icons.g_mobiledata,
-                      color: const Color(0xFF1A73E8),
-                      selected: selectedPayment == "Google Pay",
-                      onTap: () => setSheetState(() => selectedPayment = "Google Pay"),
-                    ),
-                    _paymentTile(
-                      title: "Paytm / Other UPI (पेटीएम)",
-                      subtitle: "Scan QR or Enter UPI ID",
-                      icon: Icons.qr_code,
-                      color: const Color(0xFF00B9F5),
-                      selected: selectedPayment == "Paytm / UPI",
-                      onTap: () => setSheetState(() => selectedPayment = "Paytm / UPI"),
-                    ),
-                    _paymentTile(
-                      title: "Cash on Delivery (कैश ऑन डिलीवरी)",
-                      subtitle: "घर पर सामान मिलने पर नकद दें",
-                      icon: Icons.money,
-                      color: Colors.green.shade800,
-                      selected: selectedPayment == "Cash on Delivery",
-                      onTap: () => setSheetState(() => selectedPayment = "Cash on Delivery"),
-                    ),
-
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                      child: Text(
-                        "${state.isHindi ? 'डिलीवरी पता:' : 'Address:'} ${state.fullAddress}",
-                        style: const TextStyle(fontSize: 11, color: Colors.black87),
+                    // Dynamic Live QR
+                    if (selectedPayment == "DynamicQR") ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFC5A059))),
+                        child: Column(
+                          children: [
+                            const Text("PhonePe / GPay / Paytm से स्कैन करें:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF262220))),
+                            const SizedBox(height: 8),
+                            Center(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(qrApiUrl, height: 160, width: 160, fit: BoxFit.contain),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text("UPI ID: $targetUpi | राशि: ₹$grandTotal", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                      const SizedBox(height: 12),
+                    ],
 
+                    Text("पेमेंट का विकल्प चुनें:", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
+                    const SizedBox(height: 8),
+
+                    _payTile("डायनेमिक UPI बारकोड (Scan & Pay)", "स्कैन करके तुरंत ऑनलाइन पे करें", Icons.qr_code, const Color(0xFFC5A059), selectedPayment == "DynamicQR", () => setSheetState(() => selectedPayment = "DynamicQR")),
+                    _payTile("PhonePe (फ़ोनपे ऐप)", "सीधे फ़ोनपे से भुगतान", Icons.account_balance_wallet, const Color(0xFF5F259F), selectedPayment == "PhonePe", () => setSheetState(() => selectedPayment = "PhonePe")),
+                    _payTile("Cash on Delivery (नकद)", "घर पर डिलीवरी मिलने पर नकद दें", Icons.money, Colors.green.shade800, selectedPayment == "Cash on Delivery", () => setSheetState(() => selectedPayment = "Cash on Delivery")),
+
+                    const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF262220),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                         onPressed: () {
                           state.placeOrder(items, grandTotal, selectedPayment);
                           Navigator.pop(ctx);
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                state.isHindi
-                                    ? "🎉 बधाई! आपका ऑर्डर होटल को भेज दिया गया ($selectedPayment)"
-                                    : "🎉 Order Confirmed via $selectedPayment",
-                              ),
-                              backgroundColor: const Color(0xFF262220),
-                            ),
+                            const SnackBar(content: Text("🎉 बधाई! आपका ऑर्डर होटल को भेज दिया गया है।"), backgroundColor: Color(0xFF262220)),
                           );
                         },
-                        child: Text(
-                          selectedPayment == "Cash on Delivery"
-                              ? (state.isHindi ? "ऑर्डर कन्फर्म करें (COD)" : "Confirm Order (COD)")
-                              : (state.isHindi ? "₹$grandTotal का भुगतान करें ($selectedPayment)" : "Pay ₹$grandTotal via $selectedPayment"),
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
+                        child: Text("ऑर्डर कन्फर्म करें (₹$grandTotal - $selectedPayment)", style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                   ],
@@ -1099,38 +903,23 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
-  Widget _paymentTile({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
+  Widget _payTile(String title, String sub, IconData icon, Color color, bool sel, VoidCallback tap) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: selected ? color.withOpacity(0.08) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: selected ? color : Colors.grey.shade200, width: selected ? 1.5 : 1),
-      ),
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(color: sel ? color.withOpacity(0.08) : Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: sel ? color : Colors.grey.shade200, width: sel ? 1.5 : 1)),
       child: ListTile(
-        onTap: onTap,
         dense: true,
-        leading: Icon(icon, color: color, size: 26),
-        title: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: selected ? color : Colors.black87)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        trailing: Icon(
-          selected ? Icons.radio_button_checked : Icons.radio_button_off,
-          color: selected ? color : Colors.grey,
-          size: 18,
-        ),
+        onTap: tap,
+        leading: Icon(icon, color: color, size: 22),
+        title: Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: sel ? color : Colors.black87)),
+        subtitle: Text(sub, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        trailing: Icon(sel ? Icons.radio_button_checked : Icons.radio_button_off, color: sel ? color : Colors.grey, size: 18),
       ),
     );
   }
 }
 
-// ---------------- 3. CUSTOMER ORDERS SCREEN ----------------
+// ---------------- 4. CUSTOMER ORDERS SCREEN ----------------
 class CustomerOrdersScreen extends StatelessWidget {
   const CustomerOrdersScreen({super.key});
 
@@ -1143,26 +932,9 @@ class CustomerOrdersScreen extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF9F8F6),
-          appBar: AppBar(
-            title: Text(state.isHindi ? "मेरे ऑर्डर (Live Tracking)" : "My Orders"),
-            backgroundColor: const Color(0xFF262220),
-            foregroundColor: Colors.white,
-            elevation: 0,
-          ),
+          appBar: AppBar(title: const Text("मेरे ऑर्डर (Live Tracking)"), backgroundColor: const Color(0xFF262220), foregroundColor: Colors.white, elevation: 0),
           body: state.orders.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.receipt_long_outlined, size: 70, color: Colors.grey),
-                      const SizedBox(height: 10),
-                      Text(
-                        state.isHindi ? "अभी कोई सक्रिय ऑर्डर नहीं है।" : "No active orders yet.",
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                )
+              ? const Center(child: Text("अभी कोई सक्रिय ऑर्डर नहीं है।"))
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: state.orders.length,
@@ -1171,7 +943,6 @@ class CustomerOrdersScreen extends StatelessWidget {
                     return Card(
                       margin: const EdgeInsets.only(bottom: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 1,
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
@@ -1181,41 +952,28 @@ class CustomerOrdersScreen extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(o["id"], style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.green.shade300),
-                                  ),
-                                  child: Text(
-                                    o["status"],
-                                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade900, fontSize: 12),
-                                  ),
-                                ),
+                                Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(4)), child: Text(o["status"], style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 11))),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Text(o["res"], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
-                            const SizedBox(height: 2),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4)),
-                              child: Text(
-                                "Payment: ${o["payment"]}",
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF262220)),
+                              margin: const EdgeInsets.symmetric(vertical: 6),
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(color: const Color(0xFFC5A059).withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.timer, size: 16, color: Color(0xFF262220)),
+                                  const SizedBox(width: 6),
+                                  Text("रेस्टोरेंट टाइमिंग: ${o["prepTime"]}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF262220))),
+                                ],
                               ),
                             ),
+                            Text("पेमेंट: ${o['payment']}", style: const TextStyle(fontSize: 11, color: Colors.grey)),
                             const Divider(height: 16),
                             ...((o["items"] as List).map((i) => Text("• ${i['title']} x ${i['qty']}", style: const TextStyle(fontSize: 13)))),
                             const Divider(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(state.isHindi ? "कुल बिल" : "Total Bill", style: const TextStyle(color: Colors.grey)),
-                                Text("₹${o['total']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFFC5A059))),
-                              ],
-                            ),
+                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("कुल राशि:"), Text("₹${o['total']}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFFC5A059)))]),
                           ],
                         ),
                       ),
@@ -1228,7 +986,7 @@ class CustomerOrdersScreen extends StatelessWidget {
   }
 }
 
-// ---------------- 4. CUSTOMER PROFILE SCREEN ----------------
+// ---------------- 5. CUSTOMER PROFILE SCREEN ----------------
 class CustomerProfileScreen extends StatelessWidget {
   const CustomerProfileScreen({super.key});
 
@@ -1241,62 +999,495 @@ class CustomerProfileScreen extends StatelessWidget {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF9F8F6),
+          appBar: AppBar(title: const Text("मेरी प्रोफ़ाइल"), backgroundColor: const Color(0xFF262220), foregroundColor: Colors.white, elevation: 0),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+                child: Row(
+                  children: [
+                    const CircleAvatar(radius: 28, backgroundColor: Color(0xFF262220), child: Icon(Icons.person, color: Color(0xFFC5A059), size: 30)),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(state.userName, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
+                          Text("+91 ${state.userPhone}", style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC5A059), padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
+                      onPressed: () => _editProfileModal(context),
+                      child: const Text("बदलें", style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                    )
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.grey.shade200)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("डिलीवरी का पूरा पता:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF262220))),
+                        IconButton(icon: const Icon(Icons.edit, size: 18, color: Color(0xFFC5A059)), onPressed: () => _editProfileModal(context)),
+                      ],
+                    ),
+                    const Divider(),
+                    Text("📍 मोहल्ला: ${state.userArea}", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text("🏠 मकान / दुकान: ${state.userHouse}", style: const TextStyle(fontSize: 13)),
+                    const SizedBox(height: 4),
+                    Text("🚩 लैंडमार्क: ${state.userLandmark}", style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                tileColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                leading: const Icon(Icons.storefront, color: Color(0xFF262220)),
+                title: const Text("रेस्टोरेंट टर्मिनल में जाएं"),
+                subtitle: const Text("होटल मारवाड़ी - ऑर्डर स्वीकार करें व मेन्यू बदलें"),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                onTap: () => state.switchRole("Restaurant", res: "Hotel Marwari"),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static void _editProfileModal(BuildContext context) {
+    final state = AppState.instance;
+    final nameCtrl = TextEditingController(text: state.userName);
+    final phoneCtrl = TextEditingController(text: state.userPhone);
+    final areaCtrl = TextEditingController(text: state.userArea);
+    final houseCtrl = TextEditingController(text: state.userHouse);
+    final landmarkCtrl = TextEditingController(text: state.userLandmark);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(left: 20, right: 20, top: 20, bottom: MediaQuery.of(ctx).viewInsets.bottom + 20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("कस्टमर प्रोफ़ाइल व पता अपडेट करें", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
+                const Divider(),
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "कस्टमर का नाम (Full Name)")),
+                TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "मोबाइल नंबर")),
+                TextField(controller: areaCtrl, decoration: const InputDecoration(labelText: "मोहल्ला / एरिया")),
+                TextField(controller: houseCtrl, decoration: const InputDecoration(labelText: "मकान नंबर")),
+                TextField(controller: landmarkCtrl, decoration: const InputDecoration(labelText: "लैंडमार्क")),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220), padding: const EdgeInsets.symmetric(vertical: 14)),
+                    onPressed: () {
+                      state.updateProfile(name: nameCtrl.text, phone: phoneCtrl.text, area: areaCtrl.text, house: houseCtrl.text, landmark: landmarkCtrl.text);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text("प्रोफ़ाइल सेव करें", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------- 6. RESTAURANT PARTNER TERMINAL ----------------
+class RestaurantPartnerScreen extends StatefulWidget {
+  const RestaurantPartnerScreen({super.key});
+
+  @override
+  State<RestaurantPartnerScreen> createState() => _RestaurantPartnerScreenState();
+}
+
+class _RestaurantPartnerScreenState extends State<RestaurantPartnerScreen> {
+  int _selectedMinutes = 30;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) {
+        final state = AppState.instance;
+        final resName = state.selectedRestaurant;
+        final resObj = state.restaurants.firstWhere((r) => r["name"] == resName, orElse: () => state.restaurants.first);
+        final resOrders = state.orders.where((o) => o["res"] == resName).toList();
+        final menuList = resObj["menu"] as List;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF9F8F6),
           appBar: AppBar(
-            title: Text(state.isHindi ? "मेरी प्रोफ़ाइल" : "My Profile"),
             backgroundColor: const Color(0xFF262220),
             foregroundColor: Colors.white,
-            elevation: 0,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("$resName - टर्मिनल", style: const TextStyle(fontSize: 16)),
+                Text("UPI: ${resObj["upiId"] ?? state.merchantUpiId}", style: const TextStyle(fontSize: 10, color: Color(0xFFC5A059))),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => state.switchRole("Customer"),
+                child: const Text("ग्राहक बनें", style: TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.bold)),
+              )
+            ],
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // Standee Card
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.qr_code_scanner, size: 40, color: Color(0xFFC5A059)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("$resName काउंटर QR स्टैंडी", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            const Text("दुकान के काउंटर पर लगाने के लिए डिजिटल स्टैंडी देखें", style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220)),
+                        onPressed: () => _showCounterStandee(context, resName, resObj["upiId"] ?? state.merchantUpiId),
+                        child: const Text("देखें", style: TextStyle(color: Colors.white, fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              Text("आए हुए ऑर्डर्स (${resOrders.length}):", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF262220))),
+              const SizedBox(height: 10),
+              if (resOrders.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                  child: const Center(child: Text("अभी कोई नया ऑर्डर नहीं है।")),
+                )
+              else
+                ...resOrders.map((o) {
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text("ऑर्डर ID: ${o["id"]}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                              Text(o["status"], style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          const Divider(),
+                          Text("ग्राहक: ${o["customerName"]} (${o["customerPhone"]})"),
+                          Text("डिलीवरी पता: ${o["address"]}"),
+                          Text("पेमेंट: ${o["payment"]} | कुल: ₹${o["total"]}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 6),
+                          ...((o["items"] as List).map((i) => Text("• ${i['title']} x ${i['qty']}", style: const TextStyle(fontWeight: FontWeight.bold)))),
+                          const Divider(),
+                          Row(
+                            children: [
+                              const Text("तैयारी का समय:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 8),
+                              DropdownButton<int>(
+                                value: _selectedMinutes,
+                                items: const [
+                                  DropdownMenuItem(value: 15, child: Text("15 मिनट")),
+                                  DropdownMenuItem(value: 20, child: Text("20 मिनट")),
+                                  DropdownMenuItem(value: 30, child: Text("30 मिनट")),
+                                  DropdownMenuItem(value: 45, child: Text("45 मिनट")),
+                                ],
+                                onChanged: (v) => setState(() => _selectedMinutes = v!),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC5A059)),
+                                  onPressed: () => state.acceptOrderWithTime(o["id"], _selectedMinutes),
+                                  child: Text("स्वीकारें ($_selectedMinutes मिनट)", style: const TextStyle(color: Colors.white)),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade800),
+                                  onPressed: () => state.markOrderReady(o["id"]),
+                                  child: const Text("तैयार है (Ready)", style: TextStyle(color: Colors.white)),
+                                ),
+                              ),
+                            ],
+                          )
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+
+              const SizedBox(height: 20),
+
+              // Menu & Price Manager
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("मेन्यू व रेट प्रबंधन ($resName):", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF262220))),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+                    icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                    label: const Text("नई डिश", style: TextStyle(color: Colors.white, fontSize: 11)),
+                    onPressed: () => _showAddDishModal(context, resName),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              ...menuList.map((dish) {
+                final bool isAvail = dish["isAvailable"] ?? true;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: Icon(Icons.restaurant, color: isAvail ? Colors.green : Colors.grey),
+                    title: Text(dish["name"], style: TextStyle(fontWeight: FontWeight.bold, decoration: isAvail ? null : TextDecoration.lineThrough)),
+                    subtitle: Text("रेट: ₹${dish["price"]}"),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Color(0xFFC5A059), size: 20),
+                          tooltip: "रेट बदलें",
+                          onPressed: () => _showEditPriceModal(context, resName, dish["id"], dish["name"], dish["price"]),
+                        ),
+                        Switch(
+                          value: isAvail,
+                          activeColor: Colors.green,
+                          onChanged: (_) => state.toggleDishAvailability(resName, dish["id"]),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showCounterStandee(BuildContext context, String resName, String upiId) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(color: const Color(0xFF262220), borderRadius: BorderRadius.circular(8)),
+                child: const Text("C R A V I O", style: TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.bold, letterSpacing: 2)),
+              ),
+              const SizedBox(height: 8),
+              Text(resName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF262220))),
+              const Text("काउंटर ऑर्डर स्टैंडी", style: TextStyle(fontSize: 11, color: Colors.grey)),
+              const Divider(height: 20),
+              Image.network("https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=$upiId&pn=$resName", height: 160, width: 160),
+              const SizedBox(height: 8),
+              Text("UPI: $upiId", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              const Text("घर बैठे यही खाना काउंटर रेट पर मंगाने के लिए Cravio ऐप डाउनलोड करें!", textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+            ],
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("बंद करें"))],
+        );
+      },
+    );
+  }
+
+  void _showEditPriceModal(BuildContext context, String resName, String dishId, String dishName, int currentPrice) {
+    final priceCtrl = TextEditingController(text: "$currentPrice");
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text("$dishName का रेट बदलें"),
+          content: TextField(controller: priceCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "नया रेट (₹)")),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("रद्द करें")),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220)),
+              onPressed: () {
+                final np = int.tryParse(priceCtrl.text) ?? currentPrice;
+                AppState.instance.updateDishPrice(resName, dishId, np);
+                Navigator.pop(ctx);
+              },
+              child: const Text("रेट सेव करें", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAddDishModal(BuildContext context, String resName) {
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("नई डिश जोड़ें"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: "डिश का नाम")),
+                TextField(controller: priceCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "रेट (₹)")),
+                TextField(controller: descCtrl, decoration: const InputDecoration(labelText: "विवरण")),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("रद्द करें")),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220)),
+              onPressed: () {
+                if (nameCtrl.text.isNotEmpty && priceCtrl.text.isNotEmpty) {
+                  AppState.instance.addNewDish(resName, {
+                    "id": "new_${DateTime.now().millisecondsSinceEpoch}",
+                    "name": nameCtrl.text,
+                    "price": int.tryParse(priceCtrl.text) ?? 100,
+                    "isAvailable": true,
+                    "desc": descCtrl.text,
+                  });
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text("जोड़ें", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ---------------- 7. EEVAAN VENTURES ADMIN SCREEN ----------------
+class EevaanAdminScreen extends StatelessWidget {
+  const EevaanAdminScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) {
+        final state = AppState.instance;
+        int totalSales = 0;
+        for (var o in state.orders) {
+          totalSales += (o["total"] as num).toInt();
+        }
+        int commission = (totalSales * 0.10).round();
+
+        return Scaffold(
+          backgroundColor: const Color(0xFFF9F8F6),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFF262220),
+            foregroundColor: Colors.white,
+            title: const Text("ईवान वेंचर्स - सुपर एडमिन"),
+            actions: [
+              TextButton(
+                onPressed: () => state.switchRole("Customer"),
+                child: const Text("ग्राहक बनें", style: TextStyle(color: Color(0xFFC5A059), fontWeight: FontWeight.bold)),
+              )
+            ],
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               Row(
                 children: [
-                  const CircleAvatar(
-                    radius: 28,
-                    backgroundColor: Color(0xFF262220),
-                    child: Icon(Icons.person, color: Color(0xFFC5A059), size: 30),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(state.userName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
-                        Text(state.userPhone, style: const TextStyle(color: Colors.grey)),
-                        Text(state.fullAddress, style: TextStyle(color: Colors.grey.shade600, fontSize: 11), maxLines: 2),
-                      ],
-                    ),
-                  ),
+                  Expanded(child: _metric("कुल ऑर्डर्स", "${state.orders.length}", Colors.blue)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _metric("कुल बिक्री", "₹$totalSales", const Color(0xFFC5A059))),
                 ],
               ),
-              const Divider(height: 36),
-              ListTile(
-                leading: const Icon(Icons.payment, color: Color(0xFF262220)),
-                title: Text(state.isHindi ? "पेमेंट के तरीके (Saved UPI)" : "Payment Methods"),
-                subtitle: const Text("PhonePe, Google Pay, Paytm & COD"),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-              ),
-              ListTile(
-                leading: const Icon(Icons.location_on_outlined, color: Color(0xFF262220)),
-                title: Text(state.isHindi ? "डिलीवरी पता बदलें" : "Edit Address"),
-                subtitle: Text(state.fullAddress),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-              ),
-              ListTile(
-                leading: const Icon(Icons.support_agent, color: Color(0xFF262220)),
-                title: Text(state.isHindi ? "कस्टमर केयर सपोर्ट" : "Customer Support"),
-                subtitle: const Text("गंजबासौदा हेल्पलाइन"),
-              ),
-              const ListTile(
-                leading: Icon(Icons.verified_outlined, color: Color(0xFFC5A059)),
-                title: Text("Cravio Platform"),
-                subtitle: Text("Presented by Eevaan Ventures"),
-              ),
+              const SizedBox(height: 12),
+              _metric("ईवान वेंचर्स शुद्ध कमीशन (10%)", "₹$commission", Colors.green.shade800),
+              const SizedBox(height: 24),
+              const Text("गंजबासौदा लाइव ऑर्डर मॉनिटर:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF262220))),
+              const SizedBox(height: 10),
+              if (state.orders.isEmpty) const Text("अभी कोई सक्रिय ऑर्डर नहीं है।"),
+              ...state.orders.map((o) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    title: Text("${o["res"]} ➔ ${o["customerName"]} (₹${o["total"]})"),
+                    subtitle: Text("ID: ${o["id"]} | ${o["payment"]} | ${o["status"]}"),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (st) => state.markOrderDelivered(o["id"]),
+                      itemBuilder: (ctx) => const [PopupMenuItem(value: "Delivered", child: Text("डिलीवर मार्क करें"))],
+                    ),
+                  ),
+                );
+              }).toList(),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _metric(String title, String val, Color col) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: col.withOpacity(0.4))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(color: col, fontSize: 12, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Text(val, style: TextStyle(color: col, fontSize: 22, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 }
