@@ -1,12 +1,10 @@
-import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 
 void main() {
   runApp(const CravioApp());
 }
 
-// ---------------- GLOBAL CONTROLLER & AUTO-SYNC ----------------
+// ---------------- APP STATE & STORE ----------------
 class AppState extends ChangeNotifier {
   static final AppState instance = AppState();
 
@@ -23,7 +21,7 @@ class AppState extends ChangeNotifier {
   String userLandmark = "पुरानी गल्ला मंडी के पास, गंजबासौदा";
   String get fullAddress => "$userHouse, $userArea ($userLandmark)";
 
-  // Live Restaurants & Menus (Dynamic)
+  // Live Restaurants & Menus (Dynamic Store)
   List<Map<String, dynamic>> restaurants = [
     {
       "name": "Hotel Marwari",
@@ -36,7 +34,7 @@ class AppState extends ChangeNotifier {
       "offer": "FLAT ₹30 OFF",
       "upiId": "marwari.basoda@upi",
       "menu": [
-        {"id": "m1", "name": "मारवाड़ी स्पेशल थाली", "price": 180, "isAvailable": true, "desc": "दाल, पनीर, सब्जी, 4 रोटी, चावल, रायता, मीठा"},
+        {"id": "m1", "name": "मारवाड़ी स्पेशल थाली", "price": 180, "isAvailable": true, "desc": "दाल, शाही पनीर, सूखी सब्जी, 4 रोटी, चावल, रायता, मीठा"},
         {"id": "m2", "name": "दाल बाटी चूरमा थाली", "price": 150, "isAvailable": true, "desc": "4 देशी घी बाटी, दाल, चूरमा व चटनी"},
         {"id": "m3", "name": "पनीर बटर मसाला", "price": 160, "isAvailable": true, "desc": "रिच बटर ग्रेवी में ताजा पनीर"},
       ]
@@ -92,26 +90,6 @@ class AppState extends ChangeNotifier {
   String activeRestaurant = "";
   List<Map<String, dynamic>> orders = [];
 
-  // Live Auto-Sync from GitHub Backend File
-  Future<void> syncFromGitHub() async {
-    try {
-      final client = HttpClient();
-      final uri = Uri.parse(
-        'https://raw.githubusercontent.com/eevanventures-sketch/Cravio-app/main/cravio_control.json?t=${DateTime.now().millisecondsSinceEpoch}',
-      );
-      final req = await client.getUrl(uri);
-      final res = await req.close();
-      if (res.statusCode == 200) {
-        final body = await res.transform(utf8.decoder).join();
-        final data = jsonDecode(body) as Map<String, dynamic>;
-        if (data["restaurants"] != null) {
-          restaurants = List<Map<String, dynamic>>.from(data["restaurants"]);
-          notifyListeners();
-        }
-      }
-    } catch (_) {}
-  }
-
   void toggleLang(bool hindi) {
     isHindi = hindi;
     notifyListeners();
@@ -123,7 +101,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Menu Management by Restaurant / Admin
+  // Restaurant & Admin Menu Management
   void updateDishPrice(String resName, String dishId, int newPrice) {
     for (var r in restaurants) {
       if (r["name"] == resName) {
@@ -200,7 +178,7 @@ class AppState extends ChangeNotifier {
       "items": List.from(items),
       "total": total,
       "payment": payment,
-      "status": "ऑर्डर प्राप्त हुआ (Order Placed)",
+      "status": "ऑर्डर प्राप्त हुआ (Order Received)",
       "prepTime": "तैयारी शुरू हो रही है",
     });
     cart.clear();
@@ -242,19 +220,8 @@ class AppState extends ChangeNotifier {
 }
 
 // ---------------- ROOT APP ----------------
-class CravioApp extends StatefulWidget {
+class CravioApp extends StatelessWidget {
   const CravioApp({super.key});
-
-  @override
-  State<CravioApp> createState() => _CravioAppState();
-}
-
-class _CravioAppState extends State<CravioApp> {
-  @override
-  void initState() {
-    super.initState();
-    AppState.instance.syncFromGitHub();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -408,207 +375,197 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        color: const Color(0xFFC5A059),
-        backgroundColor: const Color(0xFF262220),
-        onRefresh: () async {
-          await state.syncFromGitHub();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("✓ बैकएंड से नया डेटा सिंक हो गया!"), duration: Duration(seconds: 1), backgroundColor: Color(0xFF262220)),
-          );
-        },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // Quick Switch Strip
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFC5A059).withOpacity(0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.4)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.person_pin, size: 16, color: Color(0xFF262220)),
-                      SizedBox(width: 6),
-                      Text("मोड: ग्राहक पोर्टल (Customer Mode)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF262220))),
-                    ],
-                  ),
-                  InkWell(
-                    onTap: () => _openRoleSwitcher(context),
-                    child: const Text("पोर्टल बदलें ➔", style: TextStyle(color: Color(0xFF262220), fontWeight: FontWeight.bold, fontSize: 12)),
-                  )
-                ],
-              ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Quick Switch Strip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFC5A059).withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.4)),
             ),
-            const SizedBox(height: 12),
-
-            // Address Box
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-              child: Row(
-                children: [
-                  const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFFC5A059)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(state.isHindi ? "डिलीवरी का पता (प्रोफ़ाइल से बदलें):" : "Delivering To:", style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-                        Text(state.fullAddress, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF262220)), overflow: TextOverflow.ellipsis),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.person_pin, size: 16, color: Color(0xFF262220)),
+                    SizedBox(width: 6),
+                    Text("मोड: ग्राहक पोर्टल (Customer Mode)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF262220))),
+                  ],
+                ),
+                InkWell(
+                  onTap: () => _openRoleSwitcher(context),
+                  child: const Text("पोर्टल बदलें ➔", style: TextStyle(color: Color(0xFF262220), fontWeight: FontWeight.bold, fontSize: 12)),
+                )
+              ],
             ),
-            const SizedBox(height: 14),
+          ),
+          const SizedBox(height: 12),
 
-            // Badges
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.3))),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _badge(Icons.star, "4.8 ★ रेटिंग्स", "1,450+ ऑर्डर्स"),
-                  Container(height: 24, width: 1, color: Colors.grey.shade200),
-                  _badge(Icons.qr_code_2, "UPI बारकोड", "PhonePe व GPay"),
-                  Container(height: 24, width: 1, color: Colors.grey.shade200),
-                  _badge(Icons.timer, "लाइव टाइमिंग", "30 मिनट में खाना"),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Banner
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF262220), Color(0xFF383330)]), borderRadius: BorderRadius.circular(16)),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFC5A059), borderRadius: BorderRadius.circular(4)), child: const Text("COUNTER RATES ASSURED", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
-                        const SizedBox(height: 8),
-                        Text(state.isHindi ? "गंजबासौदा के प्रसिद्ध रेस्टोरेंट्स\nसीधा काउंटर रेट पर घर बैठे!" : "Ganj Basoda's Best Dining\nDirect Counter Menu Rates!", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.3)),
-                      ],
-                    ),
-                  ),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=200&q=80",
-                      height: 75,
-                      width: 75,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(width: 75, height: 75, color: const Color(0xFFC5A059), child: const Icon(Icons.restaurant, color: Colors.white)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-
-            Text(state.isHindi ? "गंजबासौदा के प्रमुख रेस्टोरेंट्स" : "Popular Restaurants in Ganj Basoda", style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
-            const SizedBox(height: 14),
-
-            // Restaurants
-            ...state.restaurants.map((res) {
-              return Card(
-                margin: const EdgeInsets.only(bottom: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade200)),
-                clipBehavior: Clip.antiAlias,
-                elevation: 1.5,
-                child: InkWell(
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerMenuDetailScreen(restaurant: res)));
-                  },
+          // Address Box
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+            child: Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFFC5A059)),
+                const SizedBox(width: 10),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Stack(
-                        children: [
-                          Image.network(
-                            res["image"],
-                            height: 155,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(height: 155, color: Colors.grey.shade200, child: const Center(child: Icon(Icons.fastfood, size: 50, color: Color(0xFFC5A059)))),
+                      Text(state.isHindi ? "डिलीवरी का पता (प्रोफ़ाइल से बदलें):" : "Delivering To:", style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                      Text(state.fullAddress, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF262220)), overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Badges
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFC5A059).withOpacity(0.3))),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _badge(Icons.star, "4.8 ★ रेटिंग्स", "1,450+ ऑर्डर्स"),
+                Container(height: 24, width: 1, color: Colors.grey.shade200),
+                _badge(Icons.qr_code_2, "UPI बारकोड", "PhonePe व GPay"),
+                Container(height: 24, width: 1, color: Colors.grey.shade200),
+                _badge(Icons.timer, "लाइव टाइमिंग", "30 मिनट में खाना"),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Banner
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF262220), Color(0xFF383330)]), borderRadius: BorderRadius.circular(16)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), decoration: BoxDecoration(color: const Color(0xFFC5A059), borderRadius: BorderRadius.circular(4)), child: const Text("COUNTER RATES ASSURED", style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
+                      const SizedBox(height: 8),
+                      Text(state.isHindi ? "गंजबासौदा के प्रसिद्ध रेस्टोरेंट्स\nसीधा काउंटर रेट पर घर बैठे!" : "Ganj Basoda's Best Dining\nDirect Counter Menu Rates!", style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.3)),
+                    ],
+                  ),
+                ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=200&q=80",
+                    height: 75,
+                    width: 75,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(width: 75, height: 75, color: const Color(0xFFC5A059), child: const Icon(Icons.restaurant, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+
+          Text(state.isHindi ? "गंजबासौदा के प्रमुख रेस्टोरेंट्स" : "Popular Restaurants in Ganj Basoda", style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
+          const SizedBox(height: 14),
+
+          // Restaurants
+          ...state.restaurants.map((res) {
+            return Card(
+              margin: const EdgeInsets.only(bottom: 18),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade200)),
+              clipBehavior: Clip.antiAlias,
+              elevation: 1.5,
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerMenuDetailScreen(restaurant: res)));
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Stack(
+                      children: [
+                        Image.network(
+                          res["image"],
+                          height: 155,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(height: 155, color: Colors.grey.shade200, child: const Center(child: Icon(Icons.fastfood, size: 50, color: Color(0xFFC5A059)))),
+                        ),
+                        Positioned(
+                          top: 12,
+                          left: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: const Color(0xFF262220), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFC5A059))),
+                            child: Text(res["offer"] ?? "", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 11, fontWeight: FontWeight.bold)),
                           ),
-                          Positioned(
-                            top: 12,
-                            left: 12,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: const Color(0xFF262220), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFC5A059))),
-                              child: Text(res["offer"] ?? "", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
+                        Positioned(
+                          bottom: 12,
+                          right: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(6)),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.timer_outlined, size: 12, color: Colors.white),
+                                const SizedBox(width: 4),
+                                Text(res["time"] ?? "", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              ],
                             ),
                           ),
-                          Positioned(
-                            bottom: 12,
-                            right: 12,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(6)),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.timer_outlined, size: 12, color: Colors.white),
-                                  const SizedBox(width: 4),
-                                  Text(res["time"] ?? "", style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                ],
+                        ),
+                      ],
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(state.isHindi ? (res["hindiName"] ?? res["name"]) : res["name"], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                decoration: BoxDecoration(color: const Color(0xFF262220), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFC5A059))),
+                                child: Text("★ ${res["rating"]}", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.bold)),
                               ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(res["area"] ?? "", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                          Text(res["tag"] ?? "", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.w600)),
+                          const Divider(height: 22),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                              onPressed: () {
+                                Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerMenuDetailScreen(restaurant: res)));
+                              },
+                              child: Text(state.isHindi ? "मेन्यू देखें और खाना चुनें ➔" : "View Menu & Order ➔", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                             ),
                           ),
                         ],
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(state.isHindi ? (res["hindiName"] ?? res["name"]) : res["name"], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF262220))),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(color: const Color(0xFF262220), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0xFFC5A059))),
-                                  child: Text("★ ${res["rating"]}", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.bold)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Text(res["area"] ?? "", style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                            Text(res["tag"] ?? "", style: const TextStyle(color: Color(0xFFC5A059), fontSize: 12, fontWeight: FontWeight.w600)),
-                            const Divider(height: 22),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF262220), padding: const EdgeInsets.symmetric(vertical: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                                onPressed: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (_) => CustomerMenuDetailScreen(restaurant: res)));
-                                },
-                                child: Text(state.isHindi ? "मेन्यू देखें और खाना चुनें ➔" : "View Menu & Order ➔", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              );
-            }).toList(),
-          ],
-        ),
+              ),
+            );
+          }).toList(),
+        ],
       ),
     );
   }
@@ -683,7 +640,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 }
 
-// ---------------- 3. CUSTOMER MENU & PAYMENT (WITH LIVE UPI QR) ----------------
+// ---------------- 3. CUSTOMER MENU & PAYMENT (DYNAMIC UPI QR) ----------------
 class CustomerMenuDetailScreen extends StatefulWidget {
   final Map<String, dynamic> restaurant;
   const CustomerMenuDetailScreen({super.key, required this.restaurant});
@@ -847,7 +804,6 @@ class _CustomerMenuDetailScreenState extends State<CustomerMenuDetailScreen> {
                     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text("कुल देय राशि", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)), Text("₹$grandTotal", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19, color: Color(0xFFC5A059)))]),
                     const Divider(height: 20),
 
-                    // Dynamic Live QR
                     if (selectedPayment == "DynamicQR") ...[
                       Container(
                         padding: const EdgeInsets.all(12),
